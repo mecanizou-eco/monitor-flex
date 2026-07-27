@@ -1,0 +1,1730 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relatório de Auditoria de Atendimento — Mecanizou</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface2: #263345;
+    --border: #334155;
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+    --accent: #3b82f6;
+    --accent2: #60a5fa;
+    --critico: #ef4444;
+    --abaixo: #f97316;
+    --regular: #eab308;
+    --bom: #22c55e;
+    --excelente: #06b6d4;
+    --p1: #ef4444;
+    --p3: #f97316;
+    --p7: #dc2626;
+    --p10: #eab308;
+    --p6: #f59e0b;
+    --p4: #3b82f6;
+    --p5: #6366f1;
+    --p2: #8b5cf6;
+    --p11: #a78bfa;
+    --p9: #c084fc;
+    --v1: #22c55e;
+    --v2: #10b981;
+    --v3: #06b6d4;
+    --v4: #0ea5e9;
+    --radius: 12px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    line-height: 1.6;
+    font-size: 15px;
+  }
+  /* NAV */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(15,23,42,0.96);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  nav::-webkit-scrollbar { display: none; }
+  nav a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 14px 14px;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: color .2s, border-color .2s;
+  }
+  nav a:hover { color: var(--text); border-color: var(--accent); }
+  /* MAIN */
+  main { max-width: 1400px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  /* HEADER */
+  .report-header {
+    padding: 3rem 0 2.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2.5rem;
+  }
+  .report-header h1 {
+    font-size: clamp(1.5rem, 3vw, 2.2rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: .5rem;
+  }
+  .report-header h1 span { color: var(--accent); }
+  .report-meta { color: var(--text-muted); font-size: 14px; display: flex; gap: 1.5rem; flex-wrap: wrap; margin-top: .5rem; }
+  .report-meta span { display: flex; align-items: center; gap: .4rem; }
+  /* FILTER BAR (date filter) */
+  .date-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    flex-wrap: wrap;
+    margin-top: 1.25rem;
+    padding: 1rem 1.25rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .filter-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+  .filter-sep { color: var(--text-muted); }
+  .filter-input {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 6px 10px;
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+    color-scheme: dark;
+  }
+  .filter-input:focus { border-color: var(--accent); }
+  .filter-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .15s;
+  }
+  .filter-btn:hover { opacity: .85; }
+  .filter-btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+  .filter-status { font-size: 12px; color: var(--accent); font-weight: 500; }
+  /* SECTION */
+  section { margin-bottom: 3rem; }
+  .section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 1.25rem;
+    padding-left: 1rem;
+    border-left: 4px solid var(--accent);
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+  }
+  .section-title .badge {
+    background: var(--surface2);
+    color: var(--text-muted);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+  }
+  /* KPI GRID */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+  }
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--kpi-color, var(--accent));
+  }
+  .kpi-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: .5rem; }
+  .kpi-value { font-size: 2.4rem; font-weight: 800; letter-spacing: -0.03em; color: var(--kpi-color, var(--text)); line-height: 1; }
+  .kpi-sub { font-size: 12px; color: var(--text-muted); margin-top: .4rem; }
+  /* 2-COL GRID */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.25rem; }
+  @media(max-width: 900px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+  /* CHART WRAPPER */
+  .chart-wrap { position: relative; }
+  .chart-title { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 1rem; }
+  /* PILLS */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.08);
+    color: var(--text);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  /* SCORE BADGE */
+  .score-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  /* ANALYST TABLE */
+  .analyst-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .analyst-table th {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .analyst-table th:hover { color: var(--text); }
+  .analyst-table td { padding: 10px 12px; border-bottom: 1px solid rgba(51,65,85,0.5); vertical-align: middle; }
+  .analyst-table tr:hover td { background: rgba(255,255,255,0.03); }
+  .mini-bar-bg { background: rgba(255,255,255,0.08); border-radius: 4px; height: 6px; width: 80px; display: inline-block; vertical-align: middle; margin-left: 8px; }
+  .mini-bar-fill { height: 100%; border-radius: 4px; }
+  /* ANALYST CARDS */
+  .analyst-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 1.25rem; }
+  @media(max-width: 480px) { .analyst-cards { grid-template-columns: 1fr; } }
+  .analyst-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; box-shadow: var(--shadow); }
+  .analyst-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+  .analyst-name { font-size: 1rem; font-weight: 700; }
+  .analyst-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .analyst-radar-wrap { height: 200px; position: relative; margin-bottom: 1rem; }
+  .pills-row { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .75rem; }
+  .next-steps { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+  .next-steps h4 { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .6rem; }
+  .next-steps ul { list-style: none; display: flex; flex-direction: column; gap: .4rem; }
+  .next-steps li { font-size: 12px; color: var(--text); display: flex; gap: .5rem; }
+  .next-steps li::before { content: '▸'; color: var(--accent); flex-shrink: 0; }
+  /* AIRTON */
+  .airton-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+  @media(max-width: 800px) { .airton-grid { grid-template-columns: 1fr; } }
+  .airton-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; box-shadow: var(--shadow); }
+  .priority-item { display: flex; align-items: flex-start; gap: .75rem; padding: .75rem; border-radius: 8px; background: rgba(255,255,255,0.04); margin-bottom: .5rem; }
+  .priority-num { background: var(--accent); color: white; font-size: 12px; font-weight: 700; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .priority-text { font-size: 13px; }
+  .priority-text strong { display: block; margin-bottom: 2px; }
+  /* MATRIX */
+  .matrix-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    height: 340px;
+  }
+  .matrix-cell { background: var(--surface); padding: 1.25rem; display: flex; flex-direction: column; }
+  .matrix-cell h4 { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .75rem; }
+  .matrix-label-x { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: .5rem; }
+  .matrix-label-y { writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg); font-size: 11px; color: var(--text-muted); display: flex; align-items: center; }
+  .matrix-wrapper { display: flex; gap: .5rem; align-items: stretch; }
+  .matrix-item { display: flex; align-items: center; gap: .5rem; font-size: 12px; margin-bottom: .4rem; }
+  .matrix-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  /* TABLE - conv filters */
+  .conv-filter-bar { display: flex; gap: .75rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .conv-filter-bar select, .conv-filter-bar input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    outline: none;
+  }
+  .conv-filter-bar select:focus, .conv-filter-bar input:focus { border-color: var(--accent); }
+  .conv-table-wrap { overflow-x: auto; }
+  .conv-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .conv-table th { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; cursor: pointer; white-space: nowrap; }
+  .conv-table th:hover { color: var(--text); }
+  .conv-table td { padding: 8px 10px; border-bottom: 1px solid rgba(51,65,85,0.4); vertical-align: middle; }
+  .conv-table tr:hover td { background: rgba(255,255,255,0.03); }
+  .toggle-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .toggle-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+  /* FOOTER */
+  footer { border-top: 1px solid var(--border); padding: 1.5rem 0; text-align: center; color: var(--text-muted); font-size: 12px; margin-top: 3rem; }
+  /* DIST BAR */
+  .dist-bar-wrap { display: flex; flex-direction: column; gap: 1rem; }
+  .dist-row { display: flex; align-items: center; gap: 1rem; }
+  .dist-label { font-size: 12px; width: 160px; flex-shrink: 0; display: flex; align-items: center; gap: .5rem; }
+  .dist-bar-track { flex: 1; background: rgba(255,255,255,0.06); border-radius: 6px; height: 28px; position: relative; overflow: hidden; }
+  .dist-bar-fill { height: 100%; border-radius: 6px; display: flex; align-items: center; padding-left: 10px; font-size: 12px; font-weight: 700; color: white; transition: width 1s ease; }
+  .dist-count { width: 30px; text-align: right; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+  /* ETAPA */
+  .etapa-bar-wrap { display: flex; flex-direction: column; gap: .6rem; }
+  .etapa-row { display: flex; align-items: center; gap: .75rem; font-size: 12px; }
+  .etapa-label { width: 28px; color: var(--text-muted); font-size: 11px; font-weight: 600; }
+  .etapa-track { flex: 1; background: rgba(255,255,255,0.06); border-radius: 4px; height: 18px; position: relative; }
+  .etapa-fill { height: 100%; border-radius: 4px; background: var(--accent); position: relative; transition: width .8s ease; }
+  .etapa-fill.below70 { background: var(--abaixo); }
+  .etapa-fill.below50 { background: var(--critico); }
+  .etapa-pct { font-size: 11px; color: var(--text-muted); width: 36px; text-align: right; }
+  .benchmark-line {
+    position: absolute;
+    left: 70%;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: rgba(34,197,94,0.6);
+    pointer-events: none;
+  }
+  /* SORT ARROWS */
+  .sort-arrow { margin-left: 4px; opacity: .4; }
+  .sort-arrow.asc::after { content: '↑'; }
+  .sort-arrow.desc::after { content: '↓'; }
+  /* TOOLTIP CUSTOM */
+  .tooltip { position: relative; display: inline-block; }
+  /* CLICKABLE ANALYST LINK */
+  .analyst-link { color: var(--accent2); cursor: pointer; text-decoration: none; }
+  .analyst-link:hover { text-decoration: underline; }
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="#visao-geral">Visão Geral</a>
+  <a href="#distribuicao">Distribuição</a>
+  <a href="#temporal">Evolução</a>
+  <a href="#problemas">Problemas</a>
+  <a href="#virtudes">Virtudes</a>
+  <a href="#etapas">Etapas</a>
+  <a href="#ranking">Ranking</a>
+  <a href="#perfis">Perfis</a>
+  <a href="#airton">Airton</a>
+  <a href="#oportunidades">Oportunidades</a>
+  <a href="#conversas">Conversas</a>
+</nav>
+
+<main>
+
+<!-- HEADER -->
+<div class="report-header">
+  <h1>Relatório de Auditoria de Atendimento — <span>Mecanizou</span></h1>
+  <div class="report-meta">
+    <span>📅 <span id="meta-period">2 a 24 de julho de 2026</span></span>
+    <span>💬 <span id="meta-count">138 conversas auditadas</span></span>
+    <span>👥 7 analistas avaliados</span>
+    <span>🕒 Atualizado em 27/07/2026</span>
+  </div>
+  <div class="date-filter-bar" id="date-filter-bar">
+    <span class="filter-label">Período</span>
+    <input type="date" id="filter-from" class="filter-input" min="2026-07-01" max="2026-12-31">
+    <span class="filter-sep">→</span>
+    <input type="date" id="filter-to" class="filter-input" min="2026-07-01" max="2026-12-31">
+    <button class="filter-btn" id="filter-apply">Aplicar</button>
+    <button class="filter-btn filter-btn-ghost" id="filter-clear">Limpar</button>
+    <span class="filter-status" id="filter-status"></span>
+    <span class="filter-label" style="margin-left:auto">Gerado em: <span id="gen-ts">27/07/2026 13:12</span></span>
+  </div>
+</div>
+
+<!-- VISÃO GERAL -->
+<section id="visao-geral">
+  <div class="section-title">Visão Geral <span class="badge">KPIs</span></div>
+  <div class="kpi-grid">
+    <div class="kpi-card" style="--kpi-color:#3b82f6">
+      <div class="kpi-label">Score Médio</div>
+      <div class="kpi-value" id="kpi-avg">—</div>
+      <div class="kpi-sub" id="kpi-avg-sub">de 10 pontos · era esperado ≥ 7,0</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#22c55e">
+      <div class="kpi-label">Conversas Auditadas</div>
+      <div class="kpi-value" id="kpi-n">—</div>
+      <div class="kpi-sub" id="kpi-n-sub">período selecionado</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#a78bfa">
+      <div class="kpi-label">Analistas Avaliados</div>
+      <div class="kpi-value">7</div>
+      <div class="kpi-sub">+ Airton (IA) em <span id="kpi-airton-pct">—</span>% dos casos</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#f97316">
+      <div class="kpi-label">Abaixo do Esperado + Crítico</div>
+      <div class="kpi-value" id="kpi-bad">—</div>
+      <div class="kpi-sub" id="kpi-bad-sub">conversas críticas ou abaixo</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#ef4444">
+      <div class="kpi-label">Taxa "Excelente"</div>
+      <div class="kpi-value" id="kpi-exc">0%</div>
+      <div class="kpi-sub" id="kpi-exc-sub">Nenhuma conversa atingiu 90+</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#eab308">
+      <div class="kpi-label">Score Range</div>
+      <div class="kpi-value" id="kpi-range">—</div>
+      <div class="kpi-sub" id="kpi-range-sub">amplitude do período</div>
+    </div>
+  </div>
+</section>
+
+<!-- DISTRIBUIÇÃO -->
+<section id="distribuicao">
+  <div class="section-title">Distribuição de Scores</div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="chart-title">Por Classificação</div>
+      <div class="dist-bar-wrap" id="dist-bars">
+        <!-- filled by JS -->
+      </div>
+    </div>
+    <div class="card">
+      <div class="chart-title">Proporção Visual</div>
+      <div class="chart-wrap" style="height:240px">
+        <canvas id="chartDist"></canvas>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TEMPORAL -->
+<section id="temporal">
+  <div class="section-title">Evolução Temporal <span class="badge">Score por Dia</span></div>
+  <div class="card">
+    <div class="chart-wrap" style="height:320px">
+      <canvas id="chartTemporal"></canvas>
+    </div>
+  </div>
+</section>
+
+<!-- PROBLEMAS -->
+<section id="problemas">
+  <div class="section-title">Problemas Sistêmicos <span class="badge" id="prob-badge">11 categorias</span></div>
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap">
+      <div class="chart-title" style="margin-bottom:0">Frequência por problema</div>
+      <div style="flex:1"></div>
+      <button class="toggle-btn active" id="btnAbs" onclick="toggleProblemas('abs')">Absoluto</button>
+      <button class="toggle-btn" id="btnPct" onclick="toggleProblemas('pct')">Percentual</button>
+    </div>
+    <div class="chart-wrap" style="height:340px">
+      <canvas id="chartProblemas"></canvas>
+    </div>
+  </div>
+</section>
+
+<!-- VIRTUDES -->
+<section id="virtudes">
+  <div class="section-title">Virtudes Identificadas</div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="chart-title">Frequência</div>
+      <div class="chart-wrap" style="height:220px">
+        <canvas id="chartVirtudes"></canvas>
+      </div>
+    </div>
+    <div class="card" style="display:flex;flex-direction:column;justify-content:center;gap:.75rem">
+      <div class="chart-title">Legenda Completa</div>
+      <div id="virtudes-legend"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ETAPAS -->
+<section id="etapas">
+  <div class="section-title">Análise de Etapas — Visão do Time</div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="chart-title">Radar — Todos os Analistas</div>
+      <div class="chart-wrap" style="height:300px">
+        <canvas id="chartRadarTime"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="chart-title">Média por Etapa (linha verde = benchmark 70%)</div>
+      <div class="etapa-bar-wrap" id="etapa-bars" style="margin-top:.5rem">
+        <!-- filled by JS -->
+      </div>
+      <div style="margin-top:1.25rem;font-size:12px;color:var(--text-muted)">
+        <strong style="color:var(--text)">Pesos das Etapas:</strong> E0=10% · E1=15% · E2=20% · E3=20% · E4=25% · E5=10%
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RANKING -->
+<section id="ranking">
+  <div class="section-title">Ranking de Analistas</div>
+  <div class="card">
+    <table class="analyst-table" id="rankingTable">
+      <thead>
+        <tr>
+          <th onclick="sortTable(0)">Analista <span class="sort-arrow" id="sa0"></span></th>
+          <th onclick="sortTable(1)">N <span class="sort-arrow" id="sa1"></span></th>
+          <th onclick="sortTable(2)">Média <span class="sort-arrow" id="sa2"></span></th>
+          <th>Melhor Etapa</th>
+          <th>Pior Etapa</th>
+          <th>Top Problema</th>
+          <th>Classificação Predominante</th>
+        </tr>
+      </thead>
+      <tbody id="rankingBody">
+        <!-- filled by JS -->
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- PERFIS -->
+<section id="perfis">
+  <div class="section-title">Perfil Individual dos Analistas</div>
+  <div class="analyst-cards" id="analystCards">
+    <!-- filled by JS -->
+  </div>
+</section>
+
+<!-- AIRTON -->
+<section id="airton">
+  <div class="section-title">Airton (IA) vs Time Humano</div>
+  <div class="airton-grid">
+    <div class="airton-card">
+      <div class="chart-title" style="color:var(--text);font-size:14px;margin-bottom:1rem">Time Humano</div>
+      <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:1.25rem">
+        <div><div style="font-size:11px;color:var(--text-muted)">Conversas sem Airton</div><div style="font-size:1.6rem;font-weight:800;color:var(--bom)" id="airton-without">—</div></div>
+        <div><div style="font-size:11px;color:var(--text-muted)">Score Médio s/ Airton</div><div style="font-size:1.6rem;font-weight:800;color:var(--accent)" id="airton-avg-without">—</div></div>
+        <div><div style="font-size:11px;color:var(--text-muted)">Com Airton</div><div style="font-size:1.6rem;font-weight:800;color:var(--abaixo)" id="airton-with">—</div></div>
+      </div>
+      <div class="chart-title">Comparação E0–E5 (média do time)</div>
+      <div class="chart-wrap" style="height:200px">
+        <canvas id="chartAirtonComp"></canvas>
+      </div>
+    </div>
+    <div class="airton-card">
+      <div class="chart-title" style="color:var(--text);font-size:14px;margin-bottom:1rem">Áreas de Melhoria — Airton</div>
+      <div id="airton-priorities"></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:1.25rem" id="airton-pct-card">
+    <div class="chart-title" id="airton-pct-title">Participação do Airton: — de — conversas (—%)</div>
+    <div style="background:rgba(255,255,255,0.06);border-radius:8px;height:24px;position:relative;overflow:hidden;margin-top:.5rem">
+      <div id="airton-bar" style="width:0%;height:100%;background:linear-gradient(90deg,#3b82f6,#60a5fa);border-radius:8px;display:flex;align-items:center;padding-left:10px;font-size:12px;font-weight:700;color:white"></div>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:.75rem">
+      Quando Airton aparece: tende a atuar no roteamento inicial (E0) e primeiro contato (N1). O desafio está na qualidade do handoff para o analista humano.
+    </div>
+  </div>
+</section>
+
+<!-- OPORTUNIDADES -->
+<section id="oportunidades">
+  <div class="section-title">Oportunidades Prioritárias</div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="chart-title">Matriz Impacto × Frequência</div>
+      <div class="matrix-wrapper" style="height:320px">
+        <div class="matrix-label-y">← Menor Impacto · Maior Impacto →</div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+          <div class="matrix-grid">
+            <div class="matrix-cell" style="border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
+              <h4>🔥 Quick Wins<br><small style="font-size:9px">Alto Impacto · Alta Freq.</small></h4>
+              <div class="matrix-item"><div class="matrix-dot" style="background:#dc2626"></div><span>P7 – Encerramento s/ confirmação</span></div>
+              <div class="matrix-item"><div class="matrix-dot" style="background:#f97316"></div><span>P3 – Resposta não respondeu</span></div>
+              <div class="matrix-item"><div class="matrix-dot" style="background:#ef4444"></div><span>P1 – Ausência de follow-up</span></div>
+            </div>
+            <div class="matrix-cell" style="border-bottom:1px solid var(--border)">
+              <h4>📋 Estruturar<br><small style="font-size:9px">Baixo Impacto · Alta Freq.</small></h4>
+              <div class="matrix-item"><div class="matrix-dot" style="background:#eab308"></div><span>P10 – Valor não confirmado</span></div>
+              <div class="matrix-item"><div class="matrix-dot" style="background:#f59e0b"></div><span>P6 – Info incorreta</span></div>
+            </div>
+            <div class="matrix-cell" style="border-right:1px solid var(--border)">
+              <h4>⚡ Resolver<br><small style="font-size:9px">Alto Impacto · Baixa Freq.</small></h4>
+              <div class="matrix-item"><div class="matrix-dot" style="background:#3b82f6"></div><span>P4 – Duplicidade</span></div>
+              <div class="matrix-item"><div class="matrix-dot" style="background:#6366f1"></div><span>P5 – Negativa s/ explicação</span></div>
+            </div>
+            <div class="matrix-cell">
+              <h4>👀 Monitorar<br><small style="font-size:9px">Baixo Impacto · Baixa Freq.</small></h4>
+              <div class="matrix-item"><div class="matrix-dot" style="background:#8b5cf6"></div><span>P2 – 1ª resp. fora do SLA</span></div>
+              <div class="matrix-item"><div class="matrix-dot" style="background:#a78bfa"></div><span>P11 – Cotação duplicada</span></div>
+              <div class="matrix-item"><div class="matrix-dot" style="background:#c084fc"></div><span>P9 – Tom inadequado</span></div>
+            </div>
+          </div>
+          <div class="matrix-label-x">← Menor Frequência · Maior Frequência →</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="chart-title">Top 6 Recomendações Acionáveis</div>
+      <div id="recomendacoes"></div>
+    </div>
+  </div>
+</section>
+
+<!-- CONVERSAS -->
+<section id="conversas">
+  <div class="section-title">Conversas <span class="badge" id="conv-count-badge">138</span></div>
+  <div class="card">
+    <div class="conv-filter-bar">
+      <select id="filterAnalista" onchange="filterConversas()">
+        <option value="">Todos os analistas</option>
+        <option>Paula Santos</option>
+        <option>Daniela Crevelari</option>
+        <option>Thiago Leite</option>
+        <option>Italo Luiz</option>
+        <option>Lucas Lima</option>
+        <option>Giovanna Mathias</option>
+        <option>Bruno Ferreira</option>
+      </select>
+      <select id="filterClassif" onchange="filterConversas()">
+        <option value="">Todas as classificações</option>
+        <option>Crítico</option>
+        <option>Abaixo do esperado</option>
+        <option>Regular</option>
+        <option>Bom</option>
+        <option>Excelente</option>
+      </select>
+      <select id="filterProb" onchange="filterConversas()">
+        <option value="">Todos os problemas</option>
+        <option value="P1">P1 – Ausência de follow-up</option>
+        <option value="P2">P2 – 1ª resposta fora do SLA</option>
+        <option value="P3">P3 – Resposta não respondeu</option>
+        <option value="P4">P4 – Duplicidade</option>
+        <option value="P5">P5 – Negativa s/ explicação</option>
+        <option value="P6">P6 – Info incorreta</option>
+        <option value="P7">P7 – Encerramento s/ confirmação</option>
+        <option value="P9">P9 – Tom inadequado</option>
+        <option value="P10">P10 – Valor não confirmado</option>
+        <option value="P11">P11 – Cotação duplicada</option>
+      </select>
+      <button class="toggle-btn" onclick="clearConvFilters()" style="margin-left:auto">Limpar filtros</button>
+    </div>
+    <div class="conv-table-wrap">
+      <table class="conv-table" id="convTable">
+        <thead>
+          <tr>
+            <th onclick="sortConv(0)">Data <span class="sort-arrow" id="csa0"></span></th>
+            <th onclick="sortConv(1)">Analista <span class="sort-arrow" id="csa1"></span></th>
+            <th onclick="sortConv(2)">Score <span class="sort-arrow" id="csa2"></span></th>
+            <th>Classificação</th>
+            <th>Problemas</th>
+            <th>Virtudes</th>
+            <th>Resumo</th>
+          </tr>
+        </thead>
+        <tbody id="convBody"></tbody>
+      </table>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:.75rem;text-align:right" id="conv-showing"></div>
+  </div>
+</section>
+
+</main>
+
+<footer id="footer-text">
+  Relatório de Auditoria de Atendimento — Mecanizou · <span id="footer-period">2 a 24 de julho de 2026</span> · 138 conversas · Gerado em 27/07/2026
+</footer>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// RECORDS — Individual conversation data
+// ═══════════════════════════════════════════════════════════════════
+// RECORDS_PLACEHOLDER_START
+const RAW = [{"d":"2026-07-02","a":"Italo Luiz","s":52,"c":"Abaixo do esperado","p":["P2","P3","P7","P10"],"v":["V2","V4"],"e":[5,8,8,14,12,5],"h":"O cliente solicitou urgência na entrega de peças; o atendente verificou o status, forneceu link de rastreamento e, cerca","air":true},{"d":"2026-07-02","a":"Daniela Crevelari","s":76,"c":"Bom","p":["P7","P10"],"v":["V2","V3"],"e":[8,22,15,16,11,4],"h":"O cliente enviou anexos solicitando cotação de peças de suspensão para um Nissan Kicks (placa KXG9J03); o atendente (IA ","air":true},{"d":"2026-07-02","a":"Paula Santos","s":57,"c":"Abaixo do esperado","p":["P3","P5","P7","P10"],"v":["V2"],"e":[7,18,11,10,9,2],"h":"O cliente buscava cotação para um cilindro mestre de freio com especificação técnica específica (código SBC1194B / Contr","air":false},{"d":"2026-07-02","a":"Giovanna Mathias","s":44,"c":"Abaixo do esperado","p":["P1","P3","P6","P7","P10"],"v":["V4"],"e":[6,14,9,8,5,2],"h":"Cliente solicitou cancelamento de pedido com atraso e informações incorretas de prazo que prejudicaram seu cliente final","air":false},{"d":"2026-07-02","a":"Daniela Crevelari","s":62,"c":"Regular","p":["P3","P7","P10"],"v":["V2"],"e":[7,18,11,13,9,4],"h":"Cliente solicitou cotação de atuador do câmbio para um Peugeot 208 (GCU9C75); a primeira cotação enviada continha uma pe","air":false},{"d":"2026-07-02","a":"Daniela Crevelari","s":50,"c":"Abaixo do esperado","p":["P1","P3","P6","P7","P10"],"v":["V3"],"e":[6,14,10,10,5,5],"h":"Cliente solicitou três orçamentos distintos (bandeja Peugeot 206, pistão com anéis 050 para Palio e pistão com anéis 050","air":false},{"d":"2026-07-02","a":"Paula Santos","s":66,"c":"Regular","p":["P1","P7","P10"],"v":["V1","V3"],"e":[8,20,16,14,4,4],"h":"Cliente (provavelmente um mecânico ou lojista) enviou três solicitações de cotação sequenciais para veículos distintos (","air":false},{"d":"2026-07-02","a":"Daniela Crevelari","s":60,"c":"Regular","p":["P4","P10","P7"],"v":["V3","V2"],"e":[5,18,10,14,9,4],"h":"Cliente solicitou cotação de múltiplas peças para um Fiat Doblo Cargo 1.8 2015 (homocinética, velas, coxim, embreagem, c","air":false},{"d":"2026-07-02","a":"Renata Santana","s":55,"c":"Abaixo do esperado","p":["P7","P1"],"v":["V1"],"e":[6,18,12,12,4,3],"h":"O cliente perguntou sobre a existência de um catálogo de peças; o atendente (do financeiro) orientou sobre o uso do site","air":true},{"d":"2026-07-02","a":"Paula Santos","s":54,"c":"Abaixo do esperado","p":["P4","P1","P3","P7","P10"],"v":["V2","V3"],"e":[4,10,9,13,12,6],"h":"Cliente solicitou a troca de uma cebolinha de óleo e o atendimento, após duplicidade de atendentes (com o cliente precis","air":true},{"d":"2026-07-02","a":"Paula Santos","s":64,"c":"Regular","p":["P1","P7","P5"],"v":["V3"],"e":[7,18,14,15,6,4],"h":"O cliente enviou o número do pedido (NMQ-1E97) com uma lista de 15 peças para um VW SpaceFox 2008/2009; o atendente gero","air":true},{"d":"2026-07-06","a":"Giovanna Mathias","s":64,"c":"Regular","p":["P3","P7","P10"],"v":["V2"],"e":[7,18,12,12,11,4],"h":"O cliente solicitou orçamento de 9 itens de suspensão para um Gol 1.0 16v 2000; o atendimento gerou uma cotação com apen","air":false},{"d":"2026-07-06","a":"Daniela Crevelari","s":68,"c":"Regular","p":["P4","P7","P10"],"v":["V3","V4"],"e":[7,20,14,14,10,3],"h":"O cliente enviou dois anexos com dados para cotação de peças (jogo de pistão com anéis 0,50 e comando de válvula para o ","air":false},{"d":"2026-07-06","a":"Giovanna Mathias","s":58,"c":"Abaixo do esperado","p":["P6","P7","P11"],"v":["V2","V3"],"e":[6,18,10,12,8,4],"h":"Cliente solicitou cotações de três grupos de peças (eletroventilador, resistência/conector e silencioso traseiro) ao lon","air":false},{"d":"2026-07-06","a":"Paula Santos","s":74,"c":"Regular","p":["P6","P7","P10"],"v":["V1","V3"],"e":[8,20,15,15,11,5],"h":"Cliente solicitou dois orçamentos distintos: kit corrente de distribuição para um Hyundai HR 2013 e pastilhas de freio d","air":true},{"d":"2026-07-06","a":"Italo Luiz","s":68,"c":"Regular","p":["P3","P6","P10","P7"],"v":["V2","V3"],"e":[7,19,14,14,11,3],"h":"O cliente solicitou cotações de duas peças distintas (junta do cabeçote metálica para um Fiat Uno 2014 e disco articulad","air":false},{"d":"2026-07-06","a":"Lucas Lima+twilio","s":48,"c":"Abaixo do esperado","p":["P1","P3","P5","P7","P10"],"v":[],"e":[6,16,11,9,3,3],"h":"O cliente buscava cotação de um Radiador de Ar Quente (código 5U0819030B, aparentemente modelo Valeo) e enviou múltiplos","air":false},{"d":"2026-07-06","a":"Paula Santos","s":45,"c":"Abaixo do esperado","p":["P1","P3","P7","P11"],"v":[],"e":[6,16,9,7,3,4],"h":"O cliente solicitou cotação de uma carcaça de válvula termostática para um Kia Picanto, mas os itens cotados não corresp","air":false},{"d":"2026-07-06","a":"Italo Luiz","s":65,"c":"Regular","p":["P1","P7","P10"],"v":["V3"],"e":[8,20,16,13,4,4],"h":"Cliente buscou cotação de motor de arranque para um Fiat Uno Way Dualogic 2016; o atendente respondeu em segundos, gerou","air":false},{"d":"2026-07-06","a":"Lucas Lima+twilio","s":68,"c":"Regular","p":["P6","P7"],"v":["V2","V3","V4"],"e":[8,17,12,13,12,6],"h":"Cliente (oficina/revendedor) solicitou cotação de caixa de direção mecânica para Honda HR-V 2015/2016; a cotação foi ger","air":false},{"d":"2026-07-06","a":"Lucas Lima+twilio","s":55,"c":"Abaixo do esperado","p":["P3","P5","P7","P10"],"v":["V2"],"e":[8,20,12,8,5,2],"h":"O cliente solicitou cotação de coifa do lado direito do eixo câmbio para um Peugeot 307; a IA gerou uma cotação em ~3 mi","air":false},{"d":"2026-07-06","a":"Daniela Crevelari","s":34,"c":"Crítico","p":["P1","P3","P5","P7","P10"],"v":[],"e":[6,14,5,4,3,2],"h":"Cliente (Caram Serviços) queria comprar 36 unidades de óleo mas se deparou com taxas inesperadas no carrinho e pediu exp","air":false},{"d":"2026-07-06","a":"Giovanna Mathias","s":63,"c":"Regular","p":["P1","P3","P7","P10"],"v":["V4"],"e":[6,17,15,11,7,7],"h":"O cliente relatou recebimento de peças erradas no pedido 354622047, com itens corretos faltantes. O atendente coletou fo","air":true},{"d":"2026-07-06","a":"Daniela Crevelari","s":49,"c":"Abaixo do esperado","p":["P1","P3","P7","P10"],"v":[],"e":[7,18,10,8,4,2],"h":"Cliente solicitou cotação de kit amortecedor dianteiro para veículo de placa EZN2295 (possivelmente modelo Axios). O ate","air":false},{"d":"2026-07-06","a":"Italo Luiz","s":62,"c":"Regular","p":["P3","P5","P7","P10"],"v":["V2"],"e":[8,20,13,9,9,3],"h":"O cliente solicitou cotação de buchas de suspensão traseira para um Honda CR-V (placa KKV6C19), depois pediu itens adici","air":false},{"d":"2026-07-07","a":"Daniela Crevelari","s":53,"c":"Abaixo do esperado","p":["P1","P3","P4","P6","P7"],"v":[],"e":[7,12,12,10,8,4],"h":"Cliente solicitou cotação de tampa de válvulas para Toyota Corolla 2009 (EBR8699); o atendimento entregou erroneamente c","air":false},{"d":"2026-07-07","a":"Giovanna Mathias","s":68,"c":"Regular","p":["P3","P7"],"v":["V2","V3"],"e":[7,10,12,15,18,6],"h":"Cliente enviou um anexo (provavelmente foto/lista de peças) para cotação de amortecedores e coxins para um Hyundai HB20S","air":false},{"d":"2026-07-07","a":"Italo Luiz","s":38,"c":"Crítico","p":["P1","P2","P3","P7"],"v":[],"e":[4,7,10,9,5,3],"h":"O cliente reclamou de um estorno incorreto (recebeu R$ 52,98 em vez de R$ 66,66, faltando R$ 13,68) e apresentou comprov","air":true},{"d":"2026-07-07","a":"Italo Luiz","s":80,"c":"Bom","p":["P7"],"v":["V2","V3","V4"],"e":[9,13,16,15,21,6],"h":"Cliente (LIONS SEMINOVOS) solicitou cotação de tampa de válvulas e esticador de correia de acessórios para uma Fiat Fior","air":false},{"d":"2026-07-07","a":"Paula Santos","s":81,"c":"Bom","p":["P1"],"v":["V2","V3"],"e":[8,13,16,17,20,7],"h":"O cliente solicitou duas cotações distintas — filtro de óleo para EFFA V21 e jogo de tapetes para GM Onix —, ambas entre","air":true},{"d":"2026-07-07","a":"Lucas Lima+twilio","s":48,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":[],"e":[5,10,12,12,5,4],"h":"Cliente consultou o status de entrega de um eixo (pedido 448500822); após ~15 minutos sem retorno e uma cobrança do clie","air":false},{"d":"2026-07-07","a":"Thiago Leite","s":35,"c":"Crítico","p":["P1","P3","P7","P10"],"v":["V3"],"e":[5,7,6,8,4,5],"h":"Cliente (mecânico/oficina) relatou que uma junta não havia chegado no prazo prometido, causando constrangimento com seu ","air":false},{"d":"2026-07-08","a":"Daniela Crevelari","s":69,"c":"Regular","p":["P1"],"v":["V1","V3"],"e":[7,11,15,13,16,7],"h":"A cliente (secretária de oficina) solicitou cotação de junta de cabeçote + parafuso para um Duster 2016/2017 e, em segui","air":true},{"d":"2026-07-08","a":"Daniela Crevelari","s":37,"c":"Crítico","p":[],"v":["V1"],"e":[4,7,5,5,8,8],"h":"O cliente aparentemente havia sido atendido com sucesso (demanda não identificada na transcrição disponível) e a convers","air":false},{"d":"2026-07-08","a":"Thiago Leite","s":43,"c":"Abaixo do esperado","p":["P1","P3","P4","P7","P10"],"v":["V3","V4"],"e":[5,8,9,10,8,3],"h":"Cliente (mecânico/revendedor) solicitou cotações de múltiplas peças para três veículos diferentes (Palio GDI8518, Gol DM","air":false},{"d":"2026-07-08","a":"Daniela Crevelari","s":48,"c":"Abaixo do esperado","p":["P1","P3","P6","P7"],"v":[],"e":[6,8,11,9,10,4],"h":"Cliente entrou com dúvida sobre informações incompletas em uma solicitação de devolução já existente (protocolo RET ativ","air":true},{"d":"2026-07-08","a":"Lucas Lima+twilio","s":70,"c":"Regular","p":["P1","P3"],"v":["V2","V3"],"e":[8,11,15,14,18,4],"h":"O cliente solicitou cotação de trocador de calor para um Dodge Ram 2500 2006 diesel. O atendimento identificou o item, m","air":true},{"d":"2026-07-08","a":"Paula Santos","s":53,"c":"Abaixo do esperado","p":["P1","P3","P4","P10"],"v":["V3"],"e":[6,10,11,11,10,5],"h":"O cliente entrou solicitando cotação de filtro de óleo e combustível para a placa EUP7016, depois trouxe uma demanda de ","air":false},{"d":"2026-07-08","a":"Giovanna Mathias","s":63,"c":"Regular","p":["P4","P7"],"v":["V2","V3"],"e":[6,11,11,15,14,6],"h":"Cliente buscava uma mangueira de radiador para seu Hyundai HB20 e enviou foto da peça; após troca de atendente com perda","air":false},{"d":"2026-07-08","a":"Paula Santos","s":52,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":[],"e":[6,11,12,10,10,3],"h":"Cliente relatou não recebimento de uma peça (Tensor da Correia) de um pedido que constava como entregue no sistema. O at","air":false},{"d":"2026-07-08","a":"Lucas Lima+twilio","s":78,"c":"Bom","p":[],"v":["V1","V2","V3"],"e":[8,13,15,15,20,7],"h":"Cliente (mecânico/lojista) solicitou cotação de sensor de rotação para um VW Jetta (FSN3J26); após refinamentos pediu a ","air":true},{"d":"2026-07-09","a":"Thiago Leite","s":18,"c":"Crítico","p":["P1","P3","P6","P7","P9"],"v":[],"e":[4,6,5,2,0,1],"h":"Cliente solicitou cotação de uma extensa lista de peças automotivas (suspensão, motor, filtros, etc.). O atendimento foi","air":false},{"d":"2026-07-09","a":"Giovanna Mathias","s":69,"c":"Regular","p":["P7","P3","P10"],"v":["V2","V4"],"e":[7,12,14,13,18,5],"h":"Cliente solicitou urgência na entrega do pedido 539096698 para o mesmo dia; o atendimento confirmou o status, informou p","air":true},{"d":"2026-07-09","a":"","s":10,"c":"Crítico","p":["P1","P3","P7"],"v":[],"e":[3,4,0,0,0,3],"h":"O cliente entrou em contato fora do horário comercial (21h54) e recebeu apenas respostas automáticas informando o horári","air":true},{"d":"2026-07-09","a":"Thiago Leite","s":58,"c":"Abaixo do esperado","p":["P3","P7","P10"],"v":["V2","V4"],"e":[7,10,12,11,14,4],"h":"Cliente solicitou cotação de coxim do motor inferior para Renault Megane Grand Tour 2008 e, após aprovação, também pediu","air":false},{"d":"2026-07-09","a":"","s":8,"c":"Crítico","p":["P1","P3","P7"],"v":[],"e":[3,3,0,0,0,2],"h":"O cliente (secretária Isabella) entrou em contato às 21h08 de uma terça-feira apenas com uma saudação, recebeu duas veze","air":false},{"d":"2026-07-09","a":"Thiago Leite","s":73,"c":"Regular","p":["P3","P7"],"v":["V2","V3"],"e":[8,12,15,14,18,6],"h":"Cliente (oficina/revendedor) solicitou cotação de pastilha de freio dianteiro para uma Fiat Toro 1.3 2024/25; o atendent","air":false},{"d":"2026-07-09","a":"Daniela Crevelari","s":64,"c":"Regular","p":["P1","P6","P10"],"v":["V2","V3","V4"],"e":[6,8,13,13,17,7],"h":"Cliente relatou recebimento incompleto de pedido de calços de mola (4 itens pedidos, 1 superior faltante já instalado). ","air":true},{"d":"2026-07-09","a":"Thiago Leite","s":32,"c":"Crítico","p":["P1","P3","P7"],"v":[],"e":[5,8,10,4,3,2],"h":"Cliente solicitou cotação de 3 peças para Chevrolet Onix Plus 2023/2024, fornecendo todos os dados do veículo; o atenden","air":false},{"d":"2026-07-09","a":"","s":15,"c":"Crítico","p":["P1","P3","P7"],"v":[],"e":[4,4,3,2,0,2],"h":"O cliente entrou em contato em um feriado solicitando informações sobre uma Válvula Mprop para Ford Transit. Recebeu ape","air":true},{"d":"2026-07-10","a":"Daniela Crevelari","s":60,"c":"Regular","p":["P3","P7"],"v":["V2","V3"],"e":[7,8,14,12,14,5],"h":"Cliente solicitou cotação de 5 peças do sistema de arrefecimento para um Mercedes-Benz GLA 200; o atendente coletou a pl","air":false},{"d":"2026-07-10","a":"Lucas Lima+twilio","s":29,"c":"Crítico","p":["P1","P3","P5","P7"],"v":[],"e":[3,7,7,6,5,1],"h":"Cliente entrou em contato pedindo cotação de peças para um Mercedes-Benz GLA200 (ano 2019/2020), incluindo bomba d'água,","air":true},{"d":"2026-07-10","a":"Lucas Lima+twilio","s":45,"c":"Abaixo do esperado","p":["P4","P1","P7","P3"],"v":["V2"],"e":[3,7,8,10,15,2],"h":"O cliente Jonas entrou em contato aparentemente para tirar dúvida sobre especificações de uma peça (medidas 23/25) e/ou ","air":true},{"d":"2026-07-10","a":"Lucas Lima+twilio","s":56,"c":"Abaixo do esperado","p":["P1","P7"],"v":["V3","V4"],"e":[5,9,13,14,10,5],"h":"O cliente (mecânico/oficina) precisava receber peças no mesmo dia para finalizar um serviço; o atendente orientou-o a fa","air":true},{"d":"2026-07-10","a":"Giovanna Mathias","s":61,"c":"Regular","p":["P3","P6","P7"],"v":["V2","V4"],"e":[5,8,13,13,17,5],"h":"Cliente reportou que múltiplas peças de um pedido não chegaram (6 IDs, totalizando 8 unidades), sendo os coxins os mais ","air":false},{"d":"2026-07-10","a":"Paula Santos","s":73,"c":"Regular","p":["P1"],"v":["V1","V3"],"e":[8,11,14,15,18,7],"h":"Cliente informou a placa do veículo e solicitou cotação de sensor de temperatura; o atendimento entregou cotação com ite","air":false},{"d":"2026-07-10","a":"Daniela Crevelari","s":71,"c":"Regular","p":["P3","P7"],"v":["V1","V3"],"e":[8,12,15,12,18,6],"h":"Cliente solicitou cotação de 4 bicos injetores Bosch para um VW Gol 2004. O atendimento entregou a cotação em ~6 min, ma","air":false},{"d":"2026-07-10","a":"Giovanna Mathias","s":47,"c":"Abaixo do esperado","p":["P1","P3","P5"],"v":[],"e":[6,10,12,9,5,5],"h":"Cliente solicitou cotação de mangueira de retorno da direção hidráulica (com especificação por foto) para um Corsa 2004/","air":true},{"d":"2026-07-10","a":"Daniela Crevelari","s":55,"c":"Abaixo do esperado","p":[],"v":[],"e":[4,8,10,10,15,8],"h":"O cliente enviou uma mensagem de agradecimento ('Obrigado') sem apresentar nenhuma nova demanda; o atendente respondeu c","air":true},{"d":"2026-07-13","a":"Paula Santos","s":72,"c":"Regular","p":["P6"],"v":["V2","V3","V1"],"e":[7,11,14,14,18,8],"h":"Cliente solicitou cotação de rolamento 6006 para um Fiat Palio Weekend Adventure 2009; o atendente gerou a cotação com t","air":true},{"d":"2026-07-13","a":"Italo Luiz","s":61,"c":"Regular","p":["P1","P6","P7"],"v":["V3","V4"],"e":[7,12,13,13,10,6],"h":"O cliente realizou três cotações distintas em sequência (sapata/tambor para GM Corsa, kit de suspensão/correias para Fia","air":false},{"d":"2026-07-13","a":"Lucas Lima+twilio","s":60,"c":"Regular","p":["P1","P3","P4"],"v":["V3","V4"],"e":[7,11,12,14,8,8],"h":"Cliente relatou ausência de 1 tubo no pedido 967636515; após diagnóstico inicial equivocado (IA abriu cotação indevida) ","air":false},{"d":"2026-07-13","a":"Lucas Lima+twilio","s":41,"c":"Abaixo do esperado","p":["P1","P2","P3","P7"],"v":[],"e":[6,9,11,8,5,2],"h":"O cliente (Branco Auto Center) entrou em contato cobrando a retirada de diversas peças pendentes de devolução há quase u","air":false},{"d":"2026-07-13","a":"Paula Santos","s":59,"c":"Abaixo do esperado","p":["P1"],"v":["V1","V3"],"e":[6,11,12,14,10,6],"h":"O cliente abriu atendimento (via mídia/anexo) para tratar uma devolução de peça retirada na segunda-feira anterior; o at","air":true},{"d":"2026-07-13","a":"Daniela Crevelari","s":60,"c":"Regular","p":["P1","P3","P6"],"v":["V3"],"e":[8,11,14,13,8,6],"h":"O cliente solicitou cotação de junta da base do filtro de óleo para um Citroën C3 2009/2010 1.4. A cotação foi entregue ","air":true},{"d":"2026-07-13","a":"Thiago Leite","s":57,"c":"Abaixo do esperado","p":["P4","P3","P7"],"v":["V3"],"e":[6,10,13,13,10,5],"h":"O cliente buscava um filtro KX24 com entrega no mesmo dia; o atendente humano informou o prazo de corte (16h45) e a IA g","air":true},{"d":"2026-07-13","a":"Giovanna Mathias","s":80,"c":"Bom","p":[],"v":["V1","V2","V3","V4"],"e":[8,13,16,16,20,7],"h":"Cliente solicitou cotação de kit revisão (óleo Motul 5W40, filtro de óleo, ar, combustível e cabine) para BMW X2 placa F","air":true},{"d":"2026-07-13","a":"Giovanna Mathias","s":51,"c":"Abaixo do esperado","p":["P3","P7"],"v":["V3"],"e":[6,10,10,13,8,4],"h":"Cliente reclamou que seu radiador (pedido 959509562) ainda não havia chegado; a atendente informou que a entrega estava ","air":true},{"d":"2026-07-13","a":"Italo Luiz","s":44,"c":"Abaixo do esperado","p":["P1","P2","P3","P7"],"v":[],"e":[5,7,12,10,5,5],"h":"Cliente de uma oficina mecânica (LM Car) entrou em contato solicitando cotação de par de amortecedor dianteiro para um v","air":true},{"d":"2026-07-14","a":"Daniela Crevelari","s":55,"c":"Abaixo do esperado","p":["P1","P3","P6"],"v":["V4"],"e":[6,8,13,10,12,6],"h":"O cliente buscava cotação de um bico injetor específico para seu Hyundai Creta; o atendimento entregou a cotação, mas co","air":true},{"d":"2026-07-14","a":"Paula Santos","s":25,"c":"Crítico","p":["P3","P7"],"v":[],"e":[4,5,5,3,5,3],"h":"O cliente enviou apenas um agradecimento, possivelmente como continuação de atendimento anterior; o atendente respondeu ","air":false},{"d":"2026-07-14","a":"Italo Luiz","s":64,"c":"Regular","p":["P3","P6","P7","P10"],"v":["V2"],"e":[6,10,12,13,18,5],"h":"O cliente solicitou cotação de uma correia 6PK1215; o atendimento forneceu primeiro uma cotação incorreta (veículo errad","air":false},{"d":"2026-07-14","a":"Daniela Crevelari","s":63,"c":"Regular","p":["P6","P1"],"v":["V2","V4"],"e":[8,11,13,10,14,7],"h":"Cliente de oficina solicitou cotação de peças do sistema de escape com catalisador para um Volkswagen T-Cross Sense 1.0 ","air":false},{"d":"2026-07-14","a":"Paula Santos","s":74,"c":"Regular","p":["P11"],"v":["V2","V3"],"e":[7,12,15,15,18,7],"h":"Cliente solicitou cotação de peças de suspensão para uma Meriva 1.4 2010 e de motor de arranque para um Palio 1.0 1996; ","air":false},{"d":"2026-07-14","a":"Daniela Crevelari","s":53,"c":"Abaixo do esperado","p":["P1","P3","P4"],"v":["V3","V4"],"e":[6,9,12,11,8,7],"h":"O cliente entrou para tratar indisponibilidade de óleo (estornado por falta de fornecedor), solicitou cotação de tensor ","air":true},{"d":"2026-07-14","a":"Thiago Leite","s":43,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":[],"e":[6,9,12,8,5,3],"h":"O cliente consultou o status do pedido 59054307 com urgência, preocupado se as peças chegariam no dia. O atendimento for","air":false},{"d":"2026-07-14","a":"Paula Santos","s":49,"c":"Abaixo do esperado","p":["P3","P1","P7","P10"],"v":["V3"],"e":[6,9,10,10,10,4],"h":"Cliente solicitou cotação de motor de esguicho para seu Onix Sedã 2022; a atendente enviou a cotação antes de confirmar ","air":false},{"d":"2026-07-14","a":"Italo Luiz","s":53,"c":"Abaixo do esperado","p":["P3","P7"],"v":["V2"],"e":[7,10,14,10,10,2],"h":"O cliente solicitou cotação de alternador e bateria para um Renault Kardian 2024/25. O atendente entregou a cotação da b","air":false},{"d":"2026-07-14","a":"Daniela Crevelari","s":42,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":[],"e":[6,8,12,9,4,3],"h":"Cliente de oficina cadastrada solicitou cotação de coifas homocinéticas, coifas lado caixa e rolamentos para um Palio. O","air":true},{"d":"2026-07-15","a":"Italo Luiz","s":25,"c":"Crítico","p":["P1","P3","P7","P10"],"v":[],"e":[3,4,5,7,4,2],"h":"O cliente entrou em contato com o intuito de tratar uma devolução já solicitada e saber quando receberia o Pix do estorn","air":false},{"d":"2026-07-15","a":"Italo Luiz","s":48,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":[],"e":[6,12,11,11,5,3],"h":"O cliente solicitou cotação de garfo de embreagem e kit reparo para uma Kombi 1.4 2012. O atendimento gerou a cotação co","air":false},{"d":"2026-07-15","a":"Italo Luiz","s":66,"c":"Regular","p":["P3","P7"],"v":["V1","V3"],"e":[8,12,17,14,10,5],"h":"Cliente solicitou cotação de amortecedor dianteiro para um Honda Civic 2004 — o atendimento identificou o veículo pela p","air":true},{"d":"2026-07-15","a":"Paula Santos","s":68,"c":"Regular","p":["P11"],"v":["V2","V3"],"e":[7,10,13,15,16,7],"h":"Cliente buscou cotação de tubo da bomba d'água para uma Sprinter 415 CDI (placa DZD7390); a atendente Paula processou a ","air":false},{"d":"2026-07-21","a":"Daniela Crevelari","s":65,"c":"Regular","p":["P1","P3","P7"],"v":["V3"],"e":[8,12,14,13,12,6],"h":"Cliente de oficina solicitou cotação de coxim do amortecedor traseiro e kit da haste para um Honda WR-V 2020. A cotação ","air":false},{"d":"2026-07-21","a":"Bruno Ferreira","s":59,"c":"Abaixo do esperado","p":["P4","P3","P7"],"v":["V3"],"e":[7,11,12,15,10,4],"h":"Cliente solicitou cotação de coxim, kit batente amortecedor traseiro e catalisador para um Cobalt 2014 1.8 (placa FRK0J7","air":true},{"d":"2026-07-21","a":"Renata Santana","s":36,"c":"Crítico","p":["P1","P7"],"v":[],"e":[4,9,8,7,5,3],"h":"O cliente enviou um comprovante de pagamento Santander via anexo sem explicar o contexto; o Airton (N1) não conseguiu le","air":true},{"d":"2026-07-21","a":"Daniela Crevelari","s":66,"c":"Regular","p":["P3","P4","P10"],"v":["V2","V3"],"e":[7,10,13,13,16,7],"h":"O cliente solicitou cotações de sensor ABS para um Fiat Punto e retentor de semi-eixo para uma GM Spin; ambas as cotaçõe","air":true},{"d":"2026-07-21","a":"Daniela Crevelari","s":54,"c":"Abaixo do esperado","p":["P3","P6","P7","P10"],"v":["V3"],"e":[6,9,13,11,10,5],"h":"O cliente queria comprar um scanner automotivo com capacidades específicas (carros novos, recuo de pinça EPB, troca de c","air":true},{"d":"2026-07-21","a":"Lucas Lima+twilio","s":72,"c":"Regular","p":["P10"],"v":["V1","V2","V3"],"e":[6,12,14,15,18,7],"h":"O cliente relatou dificuldade ao aplicar um cupom de troca (valor maior que o real da devolução). Lucas diagnosticou o e","air":true},{"d":"2026-07-21","a":"Lucas Lima+twilio","s":66,"c":"Regular","p":["P2"],"v":["V2","V3"],"e":[7,10,14,13,14,8],"h":"Cliente solicitou cotação de mangueira de direção hidráulica para Hyundai Veracruz 2013 3.8 V6; o atendimento coletou pl","air":true},{"d":"2026-07-21","a":"Daniela Crevelari","s":68,"c":"Regular","p":["P3","P10"],"v":["V1","V2"],"e":[7,10,14,14,16,7],"h":"Cliente solicitou cotação de 02 bandejas de suspensão superior para um Porsche Panamera 2018. O atendimento resultou em ","air":true},{"d":"2026-07-21","a":"Paula Santos","s":72,"c":"Regular","p":["P3"],"v":["V2","V3"],"e":[7,12,15,13,18,7],"h":"O cliente solicitou cotação do módulo de acionamento da bomba elétrica para um GM Tracker 2023; a atendente Paula entreg","air":true},{"d":"2026-07-21","a":"Paula Santos","s":74,"c":"Regular","p":["P3","P6"],"v":["V1","V3"],"e":[9,13,17,14,15,6],"h":"Cliente solicitou cotação de 5 peças para um GM Onix 2019; o Airton identificou o veículo, coletou a única informação fa","air":true},{"d":"2026-07-21","a":"Paula Santos","s":56,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":["V3"],"e":[7,10,13,12,8,6],"h":"O cliente solicitou cotações de duas peças (atuador de marcha lenta para Honda Civic e trocador de calor para Honda HR-V","air":true},{"d":"2026-07-21","a":"Thiago Leite","s":63,"c":"Regular","p":["P4","P3","P7"],"v":["V2","V3"],"e":[5,9,12,13,18,6],"h":"O cliente solicitou cotação de cubo traseiro (Honda City FTT2993) e recebeu a cotação; em seguida reportou que um rolame","air":true},{"d":"2026-07-21","a":"Thiago Leite","s":69,"c":"Regular","p":["P3","P10"],"v":["V1","V2","V3"],"e":[8,10,14,14,16,7],"h":"Cliente solicitou cotação de atuador de pedal de embreagem para um Ford Focus 2004 (placa DNY0E98); o atendente gerou ra","air":true},{"d":"2026-07-21","a":"Paula Santos","s":55,"c":"Abaixo do esperado","p":["P1","P7"],"v":["V1"],"e":[6,10,12,12,10,5],"h":"O cliente abriu atendimento pedindo uma imagem de uma peça que chamou de 'coração' e não conseguiu enviar a foto de refe","air":true},{"d":"2026-07-21","a":"Lucas Lima+twilio","s":52,"c":"Abaixo do esperado","p":["P7"],"v":[],"e":[5,8,10,10,12,7],"h":"O cliente enviou um agradecimento (\"Obg\"), sinalizando que sua demanda prévia havia sido atendida. O atendente correspon","air":false},{"d":"2026-07-21","a":"Bruno Ferreira","s":60,"c":"Regular","p":["P1","P3","P7"],"v":["V1","V3"],"e":[8,12,14,13,10,3],"h":"O cliente enviou placa e chassi solicitando uma cotação de motor de partida para um Honda City 2015, e o Airton identifi","air":true},{"d":"2026-07-21","a":"Thiago Leite","s":68,"c":"Regular","p":["P4","P3"],"v":["V2","V3"],"e":[7,11,13,14,17,6],"h":"O cliente enviou fotos/mídia solicitando cotação de bomba d'água, suporte e anel o'ring da válvula termostática para um ","air":false},{"d":"2026-07-21","a":"Paula Santos","s":75,"c":"Bom","p":["P3","P10","P7"],"v":["V2","V3"],"e":[8,11,17,15,18,6],"h":"Cliente solicitou cotação de maçaneta interna dianteira direita para Fiat Uno Mille 1995/96 (placa CCA-6106); a atendent","air":true},{"d":"2026-07-21","a":"Paula Santos","s":73,"c":"Regular","p":["P1","P10"],"v":["V2","V4"],"e":[8,11,16,13,18,7],"h":"Cliente solicitou cotação de 4 bielas de motor para um Nissan Kicks 2023. O atendimento entregou a cotação em ~10 min co","air":true},{"d":"2026-07-21","a":"Thiago Leite","s":41,"c":"Abaixo do esperado","p":["P1","P3","P5","P6","P7"],"v":[],"e":[6,9,10,7,5,4],"h":"O cliente solicitou primeiro uma cotação de radiador para um BMW X3 2014, que não teve ofertas disponíveis; em seguida, ","air":false},{"d":"2026-07-21","a":"Paula Santos","s":65,"c":"Regular","p":["P1","P6"],"v":["V1","V4"],"e":[7,10,13,13,16,6],"h":"O cliente queria visualizar fotos de duas mangueiras Fiat para confirmar se os códigos correspondiam às peças corretas, ","air":true},{"d":"2026-07-21","a":"Italo Luiz","s":39,"c":"Crítico","p":["P1","P3","P7","P10"],"v":[],"e":[7,9,10,6,5,2],"h":"O cliente entrou em contato relatando problema com um hidrovácuo cotado via link da Mecanizou (parafuso localizado em po","air":true},{"d":"2026-07-21","a":"Italo Luiz","s":17,"c":"Crítico","p":["P7"],"v":[],"e":[3,6,8,0,0,0],"h":"O cliente parecia estar em processo de cotação de autopeças e o atendente tentou qualificar qual veículo usar, mas a con","air":false},{"d":"2026-07-21","a":"Lucas Lima+twilio","s":47,"c":"Abaixo do esperado","p":["P1","P3","P5","P7"],"v":["V3"],"e":[6,11,13,10,5,2],"h":"O cliente entrou em contato para saber se todas as peças do pedido #663195611 chegariam no dia; o atendente informou que","air":true},{"d":"2026-07-21","a":"Thiago Leite","s":42,"c":"Abaixo do esperado","p":["P3","P5","P7"],"v":[],"e":[5,7,10,6,10,4],"h":"Cliente de oficina solicitou cotação de eixo traseiro para Toyota Etios Sedan XLS 2015 1.5; o atendente buscou a peça, i","air":true},{"d":"2026-07-22","a":"Thiago Leite","s":56,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":["V3"],"e":[7,10,13,14,8,4],"h":"O cliente solicitou cotação de todas as mangueiras para um Fiat Palio 2011 (placa EYD6F38); o atendimento identificou o ","air":false},{"d":"2026-07-22","a":"Paula Santos","s":63,"c":"Regular","p":["P11","P1","P3"],"v":["V2","V3"],"e":[7,10,13,13,14,6],"h":"Cliente (aparentemente um mecânico ou revendedor) solicitou cotações para múltiplos veículos e peças (Audi Q3 — vela/bob","air":false},{"d":"2026-07-22","a":"Paula Santos","s":42,"c":"Abaixo do esperado","p":["P1","P7","P10"],"v":["V3","V4"],"e":[5,9,8,10,5,5],"h":"O cliente recebeu um produto errado (palheta Valeo no lugar de tubo de arrefecimento Valclei VC602) e solicitou reenvio ","air":true},{"d":"2026-07-22","a":"Italo Luiz","s":43,"c":"Abaixo do esperado","p":["P1","P3","P4","P7"],"v":[],"e":[5,10,10,10,5,3],"h":"Cliente solicitou informação sobre o status do pedido 740626315; após 45 minutos de silêncio e cobrança explícita do cli","air":false},{"d":"2026-07-22","a":"Bruno Ferreira","s":44,"c":"Abaixo do esperado","p":["P1","P3","P4","P7","P10"],"v":[],"e":[6,10,12,8,6,2],"h":"Cliente entrou em contato questionando uma nota fiscal que teria recebido sem ter realizado compra alguma na Mecanizou; ","air":false},{"d":"2026-07-22","a":"Thiago Leite","s":31,"c":"Crítico","p":["P3","P1","P7"],"v":[],"e":[4,8,5,4,5,5],"h":"O cliente solicitou o cadastro de um segundo número de telefone (11995119374) e pediu que o contato fosse feito por esse","air":true},{"d":"2026-07-22","a":"Lucas Lima+twilio","s":56,"c":"Abaixo do esperado","p":["P3","P1","P7"],"v":["V4"],"e":[8,12,13,11,8,4],"h":"Cliente solicitou cotação de múltiplas peças de suspensão para um Ford Fusion 2013 (FKW2C27); o atendimento gerou cotaçõ","air":true},{"d":"2026-07-22","a":"Giovanna Mathias","s":50,"c":"Abaixo do esperado","p":["P1","P2","P3","P7"],"v":["V2"],"e":[5,6,11,11,14,3],"h":"O cliente entrou em contato com dúvida sobre a cotação COT-525586 (ponta de eixo traseiro lado esquerdo de Ford Fiesta).","air":false},{"d":"2026-07-22","a":"Paula Santos","s":72,"c":"Regular","p":["P3","P10"],"v":["V2","V3"],"e":[8,12,15,13,18,6],"h":"Cliente enviou solicitação de cotação de Radiador e Tampa Radiador para um Chrysler Caravan 1999; o atendimento processo","air":false},{"d":"2026-07-22","a":"Bruno Ferreira","s":40,"c":"Abaixo do esperado","p":["P1","P3","P6","P7"],"v":[],"e":[5,7,8,9,5,6],"h":"O cliente solicitou cotação de jogo de parafuso de cabeçote e, posteriormente, esticador de corrente INA para um Kia Bon","air":true},{"d":"2026-07-23","a":"Thiago Leite","s":51,"c":"Abaixo do esperado","p":["P1","P4","P7"],"v":[],"e":[5,10,10,13,8,5],"h":"Cliente solicitou cotação de caixa de direção hidráulica para Ford Ka 2011; a IA iniciou a qualificação, mas o handoff p","air":false},{"d":"2026-07-23","a":"Giovanna Mathias","s":69,"c":"Regular","p":["P3","P10"],"v":["V2","V3","V4"],"e":[7,10,15,14,17,6],"h":"Cliente (aparentemente um mecânico/intermediário) solicitou cotação de bico injetor para um VW Fox 1.0 2008 Flex; o aten","air":true},{"d":"2026-07-23","a":"Daniela Crevelari","s":56,"c":"Abaixo do esperado","p":["P1","P4","P7","P10"],"v":["V3"],"e":[8,12,12,11,8,5],"h":"O cliente queria saber se o Bujão Adaptador Reservatório Cilindro Mestre (pedido #835311488) chegaria no mesmo dia; o Ai","air":true},{"d":"2026-07-23","a":"Paula Santos","s":69,"c":"Regular","p":["P3","P10"],"v":["V2","V3","V4"],"e":[7,10,15,13,18,6],"h":"O cliente solicitou cotação de óleo 0W20 SP em tambor de 200L para uso em múltiplos veículos de oficina (SP). O atendime","air":false},{"d":"2026-07-23","a":"Thiago Leite","s":52,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":["V3"],"e":[7,11,12,11,5,6],"h":"O cliente solicitou cotação de embreagem completa e atuador de embreagem para um HB20 2024; a cotação dos kits foi entre","air":false},{"d":"2026-07-23","a":"Daniela Crevelari","s":56,"c":"Abaixo do esperado","p":["P3","P7"],"v":["V3"],"e":[8,10,15,13,5,5],"h":"O cliente solicitou cotação de 12 itens para um GM Prisma 2018. O atendimento identificou o veículo e cotou 11 dos 12 it","air":false},{"d":"2026-07-23","a":"Bruno Ferreira","s":54,"c":"Abaixo do esperado","p":["P7","P3"],"v":["V2","V4"],"e":[6,10,14,11,10,3],"h":"O cliente entrou em contato para acompanhar a entrega de um kit de correia e tampa, com o carro já no elevador aguardand","air":true},{"d":"2026-07-23","a":"Daniela Crevelari","s":67,"c":"Regular","p":["P1","P3","P6"],"v":["V1","V4"],"e":[7,11,13,13,16,7],"h":"O cliente questionou se seu pedido #823975024 seria entregue no dia; o Airton informou inicialmente que havia atraso e n","air":true},{"d":"2026-07-23","a":"Thiago Leite","s":44,"c":"Abaixo do esperado","p":["P1","P3","P7","P10"],"v":["V4"],"e":[6,8,10,9,8,3],"h":"O cliente queria saber se as peças de uma cotação para Peugeot 2008 chegariam no mesmo dia; o atendimento confirmou entr","air":false},{"d":"2026-07-23","a":"Paula Santos","s":43,"c":"Abaixo do esperado","p":["P1","P3","P6","P7"],"v":[],"e":[5,9,10,7,6,6],"h":"O cliente solicitou cotação de reparo de caixa de direção para um Fiat Uno 2012 (placa EZN4B74) e, em seguida, também pe","air":false},{"d":"2026-07-24","a":"Bruno Ferreira","s":60,"c":"Regular","p":["P1","P3","P7"],"v":["V2","V3"],"e":[7,11,13,11,14,4],"h":"O cliente solicitou cotação de duas demandas distintas: válvula termostática e bieleta traseira para um Dodge Journey (F","air":false},{"d":"2026-07-24","a":"Giovanna Mathias","s":65,"c":"Regular","p":["P2","P1"],"v":["V2","V4"],"e":[6,8,14,14,17,6],"h":"O cliente solicitou cotação de par de amortecedor traseiro para o mesmo veículo de uma cotação anterior (Chrysler 300C).","air":true},{"d":"2026-07-24","a":"Italo Luiz","s":67,"c":"Regular","p":["P7"],"v":["V2","V4"],"e":[7,10,13,14,18,5],"h":"O cliente solicitou cotação de radiador para um Mitsubishi ASX 2.0 2016. O atendente gerou a cotação (NOTUS, R$738,12) s","air":true},{"d":"2026-07-24","a":"Daniela Crevelari","s":55,"c":"Abaixo do esperado","p":["P1","P3","P4","P6"],"v":["V3"],"e":[7,9,11,12,9,7],"h":"O cliente relatou entrega incompleta do pedido #835855777, informando que havia recebido apenas 1 bucha de 4 encomendada","air":true},{"d":"2026-07-24","a":"Italo Luiz","s":54,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":["V1"],"e":[6,10,12,13,10,3],"h":"O cliente (oficina mecânica) solicitou cotação de 24 litros de óleo 5W30 e, posteriormente, de um carregador de bateria ","air":false},{"d":"2026-07-24","a":"Thiago Leite","s":65,"c":"Regular","p":["P4"],"v":["V2","V4"],"e":[6,8,10,14,20,7],"h":"O atendimento foi proativo: o cliente não apresentou demanda — o contato serviu para acompanhar e confirmar a entrega do","air":true},{"d":"2026-07-24","a":"Lucas Lima+twilio","s":62,"c":"Regular","p":["P3","P7"],"v":["V2"],"e":[7,11,15,11,16,2],"h":"Cliente enviou foto de uma peça solicitando cotação de válvula termostática para um Kia Picanto 2011; o atendimento gero","air":false},{"d":"2026-07-24","a":"Giovanna Mathias","s":67,"c":"Regular","p":["P3","P5","P7"],"v":["V2","V4"],"e":[7,10,14,12,18,6],"h":"O cliente enviou anexos para identificação do veículo (GM Montana 2005) e solicitou cotação de 'Gaiola'; o atendimento e","air":true},{"d":"2026-07-24","a":"Thiago Leite","s":78,"c":"Bom","p":["P1","P7"],"v":["V3","V4"],"e":[9,13,16,16,18,6],"h":"Cliente (oficina/revendedor) solicitou cotação de 11 itens para um Fiat 500 2012; o Airton entregou a cotação completa e","air":true},{"d":"2026-07-24","a":"Bruno Ferreira","s":62,"c":"Regular","p":["P3","P7"],"v":["V1","V3"],"e":[8,11,16,13,10,4],"h":"Cliente solicitou cotação de junta do suporte do filtro de óleo para Peugeot 207 SW 2009 1.4; a IA qualificou o veículo,","air":true}];
+// RECORDS_PLACEHOLDER_END
+
+const PROB_LABELS = {
+  P1:'Ausência/atraso de follow-up proativo',
+  P2:'Primeira resposta fora do SLA',
+  P3:'Resposta não respondeu à pergunta do cliente',
+  P4:'Duplicidade / transferência indevida',
+  P5:'Negativa sem explicação',
+  P6:'Informação incorreta ao cliente',
+  P7:'Encerramento sem confirmação',
+  P8:'Escalonamento tardio',
+  P9:'Tom inadequado',
+  P10:'Valor/condição não confirmado',
+  P11:'Cotação/pedido duplicado',
+};
+const VIRT_LABELS = {
+  V1:'Resolveu sem escalonamento desnecessário',
+  V2:'Follow-up proativo dentro do prazo',
+  V3:'Comunicação clara com prazo específico',
+  V4:'Gerenciou expectativa em caso complexo',
+};
+const ETAPA_MAX = [10,15,20,20,25,10];
+const ETAPA_SHORT = ['E0','E1','E2','E3','E4','E5'];
+const ETAPA_LABELS_FULL = ['E0 Abertura','E1 1ª Resp.','E2 Diagnóstico','E3 Solução','E4 Follow-up','E5 Encerramento'];
+
+const PROB_COLOR_MAP = {
+  P1: '#ef4444', P2: '#8b5cf6', P3: '#f97316', P4: '#3b82f6',
+  P5: '#6366f1', P6: '#f59e0b', P7: '#dc2626', P9: '#c084fc',
+  P10: '#eab308', P11: '#a78bfa',
+};
+const VIRT_COLOR_MAP = {
+  V1: '#22c55e', V2: '#10b981', V3: '#06b6d4', V4: '#0ea5e9',
+};
+
+// ── Filter state ───────────────────────────────────────────────
+let filterFrom = '';
+let filterTo   = '';
+
+function getFiltered() {
+  return RAW.filter(r => {
+    if (filterFrom && r.d < filterFrom) return false;
+    if (filterTo   && r.d > filterTo)   return false;
+    return true;
+  });
+}
+
+// ── Compute aggregates from filtered records ───────────────────
+function computeKPIs(data) {
+  const n = data.length;
+  const avg = n ? data.reduce((s,r) => s + r.s, 0) / n : 0;
+  const pct_bad = n ? data.filter(r => r.c === 'Crítico' || r.c === 'Abaixo do esperado').length / n * 100 : 0;
+  const bad_n = data.filter(r => r.c === 'Crítico' || r.c === 'Abaixo do esperado').length;
+  const exc_n = data.filter(r => r.s >= 90).length;
+  const scores = data.map(r => r.s);
+  const minS = scores.length ? Math.min(...scores) : 0;
+  const maxS = scores.length ? Math.max(...scores) : 0;
+  const airton_n = data.filter(r => r.air).length;
+  return { n, avg, pct_bad, bad_n, exc_n, minS, maxS, airton_n };
+}
+
+function computeProblems(data) {
+  const cnt = {};
+  data.forEach(r => r.p.forEach(p => { cnt[p] = (cnt[p] || 0) + 1; }));
+  const colors = PROB_COLOR_MAP;
+  return Object.entries(cnt)
+    .sort((a, b) => b[1] - a[1])
+    .map(([code, n]) => ({
+      code, n,
+      label: PROB_LABELS[code] || code,
+      pct: data.length ? n / data.length * 100 : 0,
+      color: colors[code] || '#94a3b8'
+    }));
+}
+
+function computeVirtues(data) {
+  const cnt = {};
+  data.forEach(r => r.v.forEach(v => { cnt[v] = (cnt[v] || 0) + 1; }));
+  const vcolors = { V1: '#22c55e', V2: '#10b981', V3: '#06b6d4', V4: '#0ea5e9' };
+  return Object.entries(cnt)
+    .sort((a, b) => b[1] - a[1])
+    .map(([code, n]) => ({
+      code, n,
+      label: VIRT_LABELS[code] || code,
+      pct: data.length ? n / data.length * 100 : 0,
+      color: vcolors[code] || '#94a3b8'
+    }));
+}
+
+function computeDaily(data) {
+  const m = {};
+  data.forEach(r => {
+    const parts = r.d.substring(5,10).split('-');
+    const d = parts[1] + '/' + parts[0]; // MM-DD → DD/MM
+    if (!m[d]) m[d] = { date: d, isoPrefix: r.d.substring(0,7) + '-' + parts[1], n: 0, sum: 0 };
+    m[d].n++;
+    m[d].sum += r.s;
+  });
+  return Object.values(m)
+    .sort((a, b) => a.isoPrefix.localeCompare(b.isoPrefix))
+    .map(v => ({ ...v, avg: Math.round(v.sum / v.n * 10) / 10 }));
+}
+
+function computeAnalystStats(data) {
+  const m = {};
+  data.forEach(r => {
+    if (!m[r.a]) m[r.a] = { name: r.a, n: 0, sum: 0, probs: {}, virts: {}, etapaSum: [0,0,0,0,0,0], classif: {} };
+    const a = m[r.a];
+    a.n++; a.sum += r.s;
+    r.p.forEach(p => { a.probs[p] = (a.probs[p] || 0) + 1; });
+    r.v.forEach(v => { a.virts[v] = (a.virts[v] || 0) + 1; });
+    r.e.forEach((val, i) => { a.etapaSum[i] += val; });
+    a.classif[r.c] = (a.classif[r.c] || 0) + 1;
+  });
+  return Object.values(m).map(a => ({
+    ...a,
+    avg: Math.round(a.sum / a.n * 10) / 10,
+    etapaPct: a.etapaSum.map((s, i) => Math.round(s / a.n / ETAPA_MAX[i] * 100)),
+  })).sort((a, b) => b.avg - a.avg);
+}
+
+function computeDist(data) {
+  const labels = ['Crítico','Abaixo do esperado','Regular','Bom','Excelente'];
+  const colors = ['#ef4444','#f97316','#eab308','#22c55e','#06b6d4'];
+  const ranges = ['< 40','40–59','60–74','75–89','90–100'];
+  const cnt = [0,0,0,0,0];
+  data.forEach(r => {
+    if (r.s < 40)      cnt[0]++;
+    else if (r.s < 60) cnt[1]++;
+    else if (r.s < 75) cnt[2]++;
+    else if (r.s < 90) cnt[3]++;
+    else               cnt[4]++;
+  });
+  return labels.map((label, i) => ({ label, range: ranges[i], n: cnt[i], color: colors[i] }));
+}
+
+function computeAirtonEtapas(data) {
+  const withA  = data.filter(r => r.air);
+  const withoutA = data.filter(r => !r.air);
+  function avgEtapa(arr) {
+    if (!arr.length) return [0,0,0,0,0,0];
+    const sums = [0,0,0,0,0,0];
+    arr.forEach(r => r.e.forEach((v, i) => { sums[i] += v; }));
+    return sums.map((s, i) => Math.round(s / arr.length / ETAPA_MAX[i] * 100));
+  }
+  return { withA: avgEtapa(withA), withoutA: avgEtapa(withoutA), nWith: withA.length, nWithout: withoutA.length };
+}
+
+// ── Utility helpers ────────────────────────────────────────────
+function classifColor(c) {
+  if (c === 'Crítico') return '#ef4444';
+  if (c === 'Abaixo do esperado' || c === 'Abaixo') return '#f97316';
+  if (c === 'Regular') return '#eab308';
+  if (c === 'Bom') return '#22c55e';
+  if (c === 'Excelente') return '#06b6d4';
+  return '#94a3b8';
+}
+
+function scoreColor(s) {
+  if (s < 40) return '#ef4444';
+  if (s < 60) return '#f97316';
+  if (s < 75) return '#eab308';
+  if (s < 90) return '#22c55e';
+  return '#06b6d4';
+}
+
+function bestEtapaStat(etapaPct) {
+  let max = -Infinity, idx = 0;
+  etapaPct.forEach((v, i) => { if (v > max) { max = v; idx = i; } });
+  return ETAPA_SHORT[idx] + ' (' + max + '%)';
+}
+function worstEtapaStat(etapaPct) {
+  let min = Infinity, idx = 0;
+  etapaPct.forEach((v, i) => { if (v < min) { min = v; idx = i; } });
+  return ETAPA_SHORT[idx] + ' (' + min + '%)';
+}
+
+// ── KPI Updates ────────────────────────────────────────────────
+function updateKPIs(kpis, data) {
+  const avgDisplay = kpis.n ? (kpis.avg / 10).toFixed(1) : '—';
+  document.getElementById('kpi-avg').textContent = avgDisplay;
+  document.getElementById('kpi-n').textContent = kpis.n;
+  document.getElementById('kpi-n-sub').textContent = filterFrom || filterTo ? 'período filtrado' : '2 a 24 de julho de 2026';
+  document.getElementById('kpi-airton-pct').textContent = kpis.n ? Math.round(kpis.airton_n / kpis.n * 100) : '—';
+  document.getElementById('kpi-bad').textContent = kpis.n ? Math.round(kpis.pct_bad) + '%' : '—';
+  document.getElementById('kpi-bad-sub').textContent = kpis.bad_n + ' de ' + kpis.n + ' conversas';
+  const excPct = kpis.n ? Math.round(kpis.exc_n / kpis.n * 100) : 0;
+  document.getElementById('kpi-exc').textContent = excPct + '%';
+  document.getElementById('kpi-exc-sub').textContent = kpis.exc_n === 0 ? 'Nenhuma conversa atingiu 90+' : kpis.exc_n + ' conversas excelentes';
+  document.getElementById('kpi-range').textContent = kpis.n ? kpis.minS + '–' + kpis.maxS : '—';
+  document.getElementById('kpi-range-sub').textContent = 'amplitude de ' + (kpis.n ? kpis.maxS - kpis.minS : 0) + ' pontos';
+}
+
+// ── Chart instances ────────────────────────────────────────────
+let chartDist = null, chartTemporal = null, chartProblemas = null, chartVirtudes = null, chartRadar = null, chartAirton = null;
+let currentProbMode = 'abs';
+let currentProblemsData = [];
+
+function redrawChartTemporal(daily) {
+  if (chartTemporal) chartTemporal.destroy();
+  const ctx = document.getElementById('chartTemporal').getContext('2d');
+  if (!daily.length) { chartTemporal = null; return; }
+  const minAvg = Math.min(...daily.map(d => d.avg));
+  const maxAvg = Math.max(...daily.map(d => d.avg));
+  const colors = daily.map(d => d.avg === minAvg ? '#ef4444' : d.avg === maxAvg ? '#22c55e' : '#3b82f6');
+  chartTemporal = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: daily.map(d => d.date),
+      datasets: [
+        {
+          label: 'Score Médio',
+          data: daily.map(d => d.avg),
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59,130,246,0.1)',
+          borderWidth: 2.5,
+          pointBackgroundColor: colors,
+          pointBorderColor: colors,
+          pointRadius: 6,
+          pointHoverRadius: 9,
+          fill: true,
+          tension: 0.35,
+        },
+        {
+          label: 'Benchmark 70',
+          data: daily.map(() => 70),
+          borderColor: '#22c55e44',
+          backgroundColor: 'transparent',
+          borderWidth: 1.5,
+          borderDash: [6,4],
+          pointRadius: 0,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#94a3b8' } },
+        y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#94a3b8' } },
+      },
+      plugins: {
+        legend: { labels: { color: '#f1f5f9', boxWidth: 14 } },
+        tooltip: {
+          callbacks: {
+            title: ctx2 => {
+              const d = daily[ctx2[0].dataIndex];
+              return d ? d.date + ' (n=' + d.n + ')' : '';
+            },
+            label: ctx2 => {
+              if (ctx2.datasetIndex === 1) return ' Benchmark: 70';
+              const d = daily[ctx2.dataIndex];
+              const note = (d && d.avg === minAvg) ? ' ⚠ Pior dia' : (d && d.avg === maxAvg) ? ' ★ Melhor dia' : '';
+              return ' Score: ' + ctx2.raw.toFixed(1) + note;
+            },
+          },
+        },
+      },
+    },
+    plugins: [{
+      id: 'annotations',
+      afterDraw(chart) {
+        const ctx2 = chart.ctx;
+        const meta = chart.getDatasetMeta(0);
+        const points = meta.data;
+        daily.forEach((d, i) => {
+          const pt = points[i];
+          if (!pt) return;
+          if (d.avg === minAvg || d.avg === maxAvg) {
+            ctx2.save();
+            ctx2.fillStyle = d.avg === minAvg ? '#ef4444' : '#22c55e';
+            ctx2.font = 'bold 11px system-ui';
+            ctx2.textAlign = 'center';
+            const label = d.avg === minAvg ? '⚠ Pior' : '★ Melhor';
+            const yOff = d.avg === minAvg ? 20 : -20;
+            ctx2.fillText(label, pt.x, pt.y + yOff);
+            ctx2.restore();
+          }
+        });
+      },
+    }],
+  });
+}
+
+function redrawChartDist(dist) {
+  if (chartDist) chartDist.destroy();
+  const ctx = document.getElementById('chartDist').getContext('2d');
+  chartDist = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: dist.map(d => d.label),
+      datasets: [{
+        data: dist.map(d => d.n),
+        backgroundColor: dist.map(d => d.color + 'cc'),
+        borderColor: dist.map(d => d.color),
+        borderWidth: 2,
+        hoverOffset: 8,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '60%',
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: { boxWidth: 12, padding: 12, font: { size: 12 }, color: '#f1f5f9' },
+        },
+        tooltip: { callbacks: {
+          label: ctx2 => ' ' + ctx2.label + ': ' + ctx2.raw + ' conversas',
+        }},
+      },
+    },
+  });
+}
+
+function redrawChartProblemas(probs, mode) {
+  if (chartProblemas) chartProblemas.destroy();
+  const ctx = document.getElementById('chartProblemas').getContext('2d');
+  const total = probs.reduce((a,b) => a + b.n, 0);
+  const data = mode === 'abs' ? probs.map(p => p.n) : probs.map(p => +p.pct.toFixed(1));
+  chartProblemas = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: probs.map(p => p.code + ' – ' + p.label),
+      datasets: [{
+        label: mode === 'abs' ? 'Ocorrências' : '% das conversas',
+        data,
+        backgroundColor: probs.map(p => p.color + 'cc'),
+        borderColor: probs.map(p => p.color),
+        borderWidth: 1.5,
+        borderRadius: 4,
+      }],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#94a3b8' } },
+        y: { grid: { display: false }, ticks: { color: '#f1f5f9', font: { size: 12 } } },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          label: ctx2 => mode === 'abs'
+            ? ' ' + ctx2.raw + ' ocorrências (' + probs[ctx2.dataIndex].pct.toFixed(1) + '% das conversas)'
+            : ' ' + ctx2.raw + '% das conversas',
+        }},
+      },
+    },
+  });
+}
+
+function redrawChartVirtudes(virts) {
+  if (chartVirtudes) chartVirtudes.destroy();
+  const ctx = document.getElementById('chartVirtudes').getContext('2d');
+  chartVirtudes = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: virts.map(v => v.code),
+      datasets: [{
+        data: virts.map(v => v.n),
+        backgroundColor: virts.map(v => v.color + 'cc'),
+        borderColor: virts.map(v => v.color),
+        borderWidth: 1.5,
+        borderRadius: 6,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#f1f5f9', font: { size: 13 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#94a3b8' } },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          label: ctx2 => {
+            const v = virts[ctx2.dataIndex];
+            return ' ' + v.label + ': ' + ctx2.raw + ' ocorrências';
+          },
+        }},
+      },
+    },
+  });
+}
+
+function redrawChartRadar(analystStats) {
+  if (chartRadar) chartRadar.destroy();
+  const ctx = document.getElementById('chartRadarTime').getContext('2d');
+  const colors = ['#3b82f6','#22c55e','#f97316','#ef4444','#eab308','#a78bfa','#10b981'];
+  const datasets = analystStats.map((a, i) => ({
+    label: a.name.split(' ')[0],
+    data: a.etapaPct,
+    borderColor: colors[i % colors.length] + 'aa',
+    backgroundColor: colors[i % colors.length] + '11',
+    borderWidth: 1.5,
+    pointRadius: 2,
+    pointBackgroundColor: colors[i % colors.length],
+  }));
+  datasets.push({
+    label: 'Benchmark 70%',
+    data: [70,70,70,70,70,70],
+    borderColor: '#22c55e66',
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderDash: [5,5],
+    pointRadius: 0,
+  });
+  chartRadar = new Chart(ctx, {
+    type: 'radar',
+    data: { labels: ETAPA_SHORT, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        r: {
+          min: 0, max: 100,
+          ticks: { display: false, stepSize: 25 },
+          grid: { color: 'rgba(255,255,255,0.1)' },
+          pointLabels: { color: '#f1f5f9', font: { size: 13, weight: '600' } },
+          angleLines: { color: 'rgba(255,255,255,0.08)' },
+        },
+      },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 11 }, color: '#94a3b8' } },
+        tooltip: { callbacks: { label: ctx2 => ' ' + ctx2.dataset.label + ': ' + ctx2.raw + '%' } },
+      },
+    },
+  });
+}
+
+function redrawChartAirton(airtonData) {
+  if (chartAirton) chartAirton.destroy();
+  const ctx = document.getElementById('chartAirtonComp').getContext('2d');
+  chartAirton = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ETAPA_SHORT,
+      datasets: [
+        {
+          label: 'Com Airton (' + airtonData.nWith + ' conv.)',
+          data: airtonData.withA,
+          backgroundColor: '#3b82f6aa',
+          borderColor: '#3b82f6',
+          borderWidth: 1.5,
+          borderRadius: 4,
+        },
+        {
+          label: 'Sem Airton (' + airtonData.nWithout + ' conv.)',
+          data: airtonData.withoutA,
+          backgroundColor: '#22c55eaa',
+          borderColor: '#22c55e',
+          borderWidth: 1.5,
+          borderRadius: 4,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+        y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#94a3b8' } },
+      },
+      plugins: {
+        legend: { labels: { boxWidth: 12, font: { size: 11 }, color: '#f1f5f9' } },
+        tooltip: { callbacks: { label: ctx2 => ' ' + ctx2.dataset.label + ': ' + ctx2.raw + '%' } },
+      },
+    },
+  });
+}
+
+// ── Dist Bars ──────────────────────────────────────────────────
+function renderDistBars(dist, total) {
+  const wrap = document.getElementById('dist-bars');
+  wrap.innerHTML = '';
+  const maxN = Math.max(...dist.map(d => d.n), 1);
+  dist.forEach(d => {
+    const pct = total > 0 ? (d.n / total * 100).toFixed(1) : 0;
+    const w = (d.n / maxN) * 100;
+    wrap.innerHTML += `
+      <div class="dist-row">
+        <div class="dist-label">
+          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${d.color};flex-shrink:0"></span>
+          <span style="font-size:12px">${d.label}</span>
+          <span style="font-size:10px;color:var(--text-muted)">${d.range}</span>
+        </div>
+        <div class="dist-bar-track">
+          <div class="dist-bar-fill" style="width:${d.n===0?'1px':w+'%'};background:${d.color}">
+            ${d.n > 0 ? pct + '%' : ''}
+          </div>
+          <div class="benchmark-line"></div>
+        </div>
+        <div class="dist-count" style="color:${d.color}">${d.n}</div>
+      </div>
+    `;
+  });
+}
+
+// ── Etapa Bars ─────────────────────────────────────────────────
+function renderEtapaBars(analystStats) {
+  // Compute team average etapa percentages from filtered data
+  const avgs = [0,0,0,0,0,0];
+  if (analystStats.length) {
+    analystStats.forEach(a => { a.etapaPct.forEach((v, i) => { avgs[i] += v; }); });
+    avgs.forEach((v, i) => { avgs[i] = +(v / analystStats.length).toFixed(1); });
+  }
+  const wrap = document.getElementById('etapa-bars');
+  wrap.innerHTML = '';
+  avgs.forEach((v, i) => {
+    let cls = '';
+    if (v < 50) cls = 'below50';
+    else if (v < 70) cls = 'below70';
+    wrap.innerHTML += `
+      <div class="etapa-row">
+        <div class="etapa-label">${ETAPA_SHORT[i]}</div>
+        <div class="etapa-track">
+          <div class="etapa-fill ${cls}" style="width:${v}%"></div>
+          <div class="benchmark-line"></div>
+        </div>
+        <div class="etapa-pct">${v}%</div>
+      </div>
+    `;
+  });
+}
+
+// ── Ranking Table ──────────────────────────────────────────────
+let rankSortCol = 2, rankSortDir = -1;
+let currentAnalystStats = [];
+
+function renderRankingFromStats(analystStats) {
+  currentAnalystStats = analystStats;
+  const sorted = [...analystStats].sort((a, b) => {
+    if (rankSortCol === 0) return rankSortDir * a.name.localeCompare(b.name);
+    if (rankSortCol === 1) return rankSortDir * (a.n - b.n);
+    return rankSortDir * (a.avg - b.avg);
+  });
+  const tbody = document.getElementById('rankingBody');
+  tbody.innerHTML = '';
+  sorted.forEach(a => {
+    const topProb = Object.entries(a.probs).sort((x,y) => y[1]-x[1])[0];
+    const topProbCode = topProb ? topProb[0] : null;
+    const topProbDisplay = topProb ? topProbCode + '(' + topProb[1] + ')' : '—';
+    const topClassif = Object.entries(a.classif).sort((x,y) => y[1]-x[1])[0];
+    const topClassifLabel = topClassif ? topClassif[0] : '—';
+    const clr = scoreColor(a.avg);
+    const barW = Math.round(a.avg);
+    tbody.innerHTML += `
+      <tr>
+        <td><a class="analyst-link" onclick="scrollToAnalyst('${a.name}')">${a.name}</a></td>
+        <td>${a.n}</td>
+        <td>
+          <span style="font-weight:700;color:${clr}">${a.avg.toFixed(1)}</span>
+          <span class="mini-bar-bg"><span class="mini-bar-fill" style="width:${barW}%;background:${clr}"></span></span>
+        </td>
+        <td style="font-size:12px;color:#22c55e">${bestEtapaStat(a.etapaPct)}</td>
+        <td style="font-size:12px;color:#ef4444">${worstEtapaStat(a.etapaPct)}</td>
+        <td>${topProbCode ? '<span class="pill" style="background:'+PROB_COLOR_MAP[topProbCode]+'22;border-color:'+PROB_COLOR_MAP[topProbCode]+'55;color:'+PROB_COLOR_MAP[topProbCode]+'">'+topProbDisplay+'</span>' : '—'}</td>
+        <td><span class="score-badge" style="background:${classifColor(topClassifLabel)}22;color:${classifColor(topClassifLabel)}">${topClassifLabel}</span></td>
+      </tr>
+    `;
+  });
+  ['sa0','sa1','sa2'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.className = 'sort-arrow';
+      if (i === rankSortCol) el.classList.add(rankSortDir === 1 ? 'asc' : 'desc');
+    }
+  });
+}
+
+function sortTable(col) {
+  if (rankSortCol === col) rankSortDir *= -1;
+  else { rankSortCol = col; rankSortDir = col === 0 ? 1 : -1; }
+  renderRankingFromStats(currentAnalystStats);
+}
+
+function scrollToAnalyst(name) {
+  const el = document.getElementById('analyst-' + name.replace(/\s+/g, '-'));
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ── Analyst Cards (static — uses ANALYSTS config, not live data) ──
+const ANALYSTS = [
+  {
+    name: 'Paula Santos',
+    n: 28, avg: 61.6,
+    etapas: [68, 79, 64, 62, 49, 55],
+    problems: ['P1(17)', 'P3(15)', 'P7(14)', 'P10(11)', 'P6(5)'],
+    problemCodes: ['P1','P3','P7','P10','P6'],
+    virtues: ['V3(20)', 'V2(12)', 'V1(8)', 'V4(4)'],
+    virtueCodes: ['V3','V2','V1','V4'],
+    classif: { Bom: 2, Regular: 14, Abaixo: 11, Crítico: 1 },
+    nextSteps: [
+      'Trabalhar follow-up proativo (E4 em 49% — mais fraco da analista)',
+      'Estruturar encerramento com confirmação explícita do cliente (P7=14)',
+      'Confirmar valores e condições explicitamente em toda proposta (P10=11)',
+      'Reduzir respostas que não abordam diretamente a pergunta do cliente (P3=15)',
+    ],
+  },
+  {
+    name: 'Daniela Crevelari',
+    n: 28, avg: 57.7,
+    etapas: [67, 78, 61, 56, 42, 54],
+    problems: ['P3(19)', 'P7(16)', 'P1(16)', 'P10(12)', 'P6(10)'],
+    problemCodes: ['P3','P7','P1','P10','P6'],
+    virtues: ['V3(16)', 'V2(8)', 'V4(6)', 'V1(5)'],
+    virtueCodes: ['V3','V2','V4','V1'],
+    classif: { Bom: 1, Regular: 13, Abaixo: 12, Crítico: 2 },
+    nextSteps: [
+      'Proposta de solução mais completa e direta (E3 em 56% — abaixo do benchmark)',
+      'Informações mais precisas ao cliente — alto índice de informação incorreta (P6=10)',
+      'Confirmar valor/condição explicitamente em toda negociação (P10=12)',
+      'Estruturar follow-up com conteúdo novo em vez de "ainda verificando" (P1=16)',
+    ],
+  },
+  {
+    name: 'Thiago Leite',
+    n: 20, avg: 51.0,
+    etapas: [60, 61, 54, 51, 40, 46],
+    problems: ['P3(17)', 'P7(17)', 'P1(12)', 'P4(6)', 'P10(5)'],
+    problemCodes: ['P3','P7','P1','P4','P10'],
+    virtues: ['V3(10)', 'V2(6)', 'V4(5)', 'V1(1)'],
+    virtueCodes: ['V3','V2','V4','V1'],
+    classif: { Bom: 1, Regular: 5, Abaixo: 10, Crítico: 4 },
+    nextSteps: [
+      'Primeira resposta mais substancial e completa — urgente (E1 em 61%, pior do time)',
+      'Reduzir duplicidade de atendentes e transferências indevidas (P4=6)',
+      'Estruturar follow-up com dados concretos (E4 em 40%, crítico)',
+      'Responder diretamente à pergunta antes de qualquer adição (P3=17)',
+    ],
+  },
+  {
+    name: 'Italo Luiz',
+    n: 18, avg: 52.6,
+    etapas: [62, 74, 59, 54, 36, 36],
+    problems: ['P7(18)', 'P3(13)', 'P1(9)', 'P10(7)', 'P2(3)'],
+    problemCodes: ['P7','P3','P1','P10','P2'],
+    virtues: ['V2(7)', 'V3(5)', 'V4(4)', 'V1(2)'],
+    virtueCodes: ['V2','V3','V4','V1'],
+    classif: { Bom: 1, Regular: 7, Abaixo: 6, Crítico: 4 },
+    nextSteps: [
+      'Follow-up proativo urgente (E4 em 36% — pior absoluto do time)',
+      'Encerramento com confirmação do cliente obrigatório (E5 em 36% + P7 em 100% das conversas)',
+      'Garantir primeira resposta dentro do SLA (P2=3, risco de deterioração)',
+      'Confirmar valores/condições antes de encerrar toda negociação (P10=7)',
+    ],
+  },
+  {
+    name: 'Lucas Lima',
+    n: 17, avg: 56.1,
+    etapas: [62, 76, 61, 57, 42, 44],
+    problems: ['P7(12)', 'P3(11)', 'P1(10)', 'P5(4)', 'P10(3)'],
+    problemCodes: ['P7','P3','P1','P5','P10'],
+    virtues: ['V2(8)', 'V3(8)', 'V4(4)', 'V1(2)'],
+    virtueCodes: ['V2','V3','V4','V1'],
+    classif: { Bom: 1, Regular: 6, Abaixo: 9, Crítico: 1 },
+    nextSteps: [
+      'Eliminar negativas sem explicação (P5=4) — oferecer alternativas sempre',
+      'Estruturar encerramento com resumo e confirmação explícita (E5 em 44%)',
+      'Follow-up com informação nova e conteúdo relevante (P1=10)',
+      'Responder diretamente à pergunta do cliente antes de expandir (P3=11)',
+    ],
+  },
+  {
+    name: 'Giovanna Mathias',
+    n: 15, avg: 61.3,
+    etapas: [63, 78, 63, 63, 53, 51],
+    problems: ['P3(11)', 'P7(11)', 'P1(5)', 'P10(5)', 'P6(3)'],
+    problemCodes: ['P3','P7','P1','P10','P6'],
+    virtues: ['V2(11)', 'V4(8)', 'V3(6)', 'V1(1)'],
+    virtueCodes: ['V2','V4','V3','V1'],
+    classif: { Bom: 1, Regular: 9, Abaixo: 5, Crítico: 0 },
+    nextSteps: [
+      'Foco no encerramento estruturado com confirmação (E5 em 51%, maior gap restante)',
+      'Responder diretamente à pergunta literal do cliente (P3=11)',
+      'Manter zero críticos — referência positiva do time nesse quesito',
+      'Consolidar as virtudes V2 e V4 como padrão para outros analistas aprenderem',
+    ],
+  },
+  {
+    name: 'Bruno Ferreira',
+    n: 7, avg: 54.1,
+    etapas: [67, 69, 64, 57, 37, 37],
+    problems: ['P3(7)', 'P7(7)', 'P1(4)', 'P4(2)', 'P10(1)'],
+    problemCodes: ['P3','P7','P1','P4','P10'],
+    virtues: ['V3(4)', 'V1(2)', 'V2(2)', 'V4(1)'],
+    virtueCodes: ['V3','V1','V2','V4'],
+    classif: { Bom: 0, Regular: 3, Abaixo: 4, Crítico: 0 },
+    nextSteps: [
+      'Follow-up proativo com informação nova (E4 em 37%, crítico)',
+      'Encerramento com confirmação do cliente obrigatório (E5 em 37%)',
+      'Amostra pequena (n=7) — ampliar auditoria antes de conclusões definitivas',
+      'Eliminar duplicidade de atendentes (P4=2 em somente 7 conversas — proporcionalmente alto)',
+    ],
+  },
+];
+
+const radarCharts = {};
+function renderAnalystCards() {
+  const wrap = document.getElementById('analystCards');
+  wrap.innerHTML = '';
+  ANALYSTS.forEach((a, idx) => {
+    const domId = 'analyst-' + a.name.replace(/\s+/g, '-');
+    const c = Object.entries(a.classif).sort((x,y) => y[1]-x[1])[0]?.[0] || 'Regular';
+    const clr = scoreColor(a.avg);
+    const problemPills = a.problemCodes.map((p, i) =>
+      `<span class="pill" style="background:${PROB_COLOR_MAP[p]}22;border-color:${PROB_COLOR_MAP[p]}55;color:${PROB_COLOR_MAP[p]}">${a.problems[i]}</span>`
+    ).join('');
+    const virtuePills = a.virtueCodes.map((v, i) =>
+      `<span class="pill" style="background:${VIRT_COLOR_MAP[v]}22;border-color:${VIRT_COLOR_MAP[v]}55;color:${VIRT_COLOR_MAP[v]}">${a.virtues[i]}</span>`
+    ).join('');
+    const nextStepsHtml = a.nextSteps.map(s => `<li>${s}</li>`).join('');
+    const classifHtml = Object.entries(a.classif).filter(([,v]) => v > 0).map(([k, v]) =>
+      `<span class="pill" style="background:${classifColor(k)}22;color:${classifColor(k)};border-color:${classifColor(k)}44">${k}: ${v}</span>`
+    ).join('');
+    wrap.innerHTML += `
+      <div class="analyst-card" id="${domId}">
+        <div class="analyst-card-header">
+          <div>
+            <div class="analyst-name">${a.name}</div>
+            <div class="analyst-meta">n=${a.n} conversas auditadas</div>
+          </div>
+          <div style="text-align:right">
+            <div class="score-badge" style="background:${clr}22;color:${clr};font-size:1.2rem;padding:6px 16px">${a.avg.toFixed(1)}</div>
+            <div style="font-size:11px;color:${classifColor(c)};margin-top:4px">${c}</div>
+          </div>
+        </div>
+        <div class="analyst-radar-wrap">
+          <canvas id="radar-${idx}"></canvas>
+        </div>
+        <div style="margin-bottom:.5rem;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Classificações</div>
+        <div class="pills-row">${classifHtml}</div>
+        <div style="margin-bottom:.5rem;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Problemas</div>
+        <div class="pills-row">${problemPills}</div>
+        <div style="margin-bottom:.5rem;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Virtudes</div>
+        <div class="pills-row">${virtuePills}</div>
+        <div class="next-steps">
+          <h4>Próximos Passos</h4>
+          <ul>${nextStepsHtml}</ul>
+        </div>
+      </div>
+    `;
+  });
+  setTimeout(() => {
+    ANALYSTS.forEach((a, idx) => {
+      const ctx = document.getElementById('radar-' + idx);
+      if (!ctx) return;
+      if (radarCharts[idx]) radarCharts[idx].destroy();
+      radarCharts[idx] = new Chart(ctx, {
+        type: 'radar',
+        data: {
+          labels: ETAPA_SHORT,
+          datasets: [
+            {
+              label: a.name,
+              data: a.etapas,
+              borderColor: scoreColor(a.avg),
+              backgroundColor: scoreColor(a.avg) + '22',
+              borderWidth: 2,
+              pointBackgroundColor: scoreColor(a.avg),
+              pointRadius: 3,
+            },
+            {
+              label: 'Benchmark 70%',
+              data: [70,70,70,70,70,70],
+              borderColor: '#22c55e55',
+              backgroundColor: 'transparent',
+              borderWidth: 1,
+              borderDash: [4,4],
+              pointRadius: 0,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            r: {
+              min: 0, max: 100,
+              ticks: { display: false, stepSize: 25 },
+              grid: { color: 'rgba(255,255,255,0.1)' },
+              pointLabels: { color: '#94a3b8', font: { size: 11 } },
+              angleLines: { color: 'rgba(255,255,255,0.08)' },
+            },
+          },
+          plugins: { legend: { display: false }, tooltip: { callbacks: {
+            label: ctx2 => ctx2.dataset.label + ': ' + ctx2.raw + '%'
+          }}},
+        },
+      });
+    });
+  }, 100);
+}
+
+// ── Virtudes Legend ────────────────────────────────────────────
+function renderVirtudesLegend(virts) {
+  const wrap = document.getElementById('virtudes-legend');
+  wrap.innerHTML = virts.map(v => `
+    <div style="display:flex;align-items:flex-start;gap:.6rem;margin-bottom:.75rem">
+      <div style="width:12px;height:12px;border-radius:50%;background:${v.color};flex-shrink:0;margin-top:2px"></div>
+      <div>
+        <span style="font-weight:700;font-size:13px;color:${v.color}">${v.code}</span>
+        <span style="font-size:13px;color:var(--text);margin-left:.25rem">${v.label}</span>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:1px">${v.n} ocorrências</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Airton Section ─────────────────────────────────────────────
+function renderAirtonPriorities() {
+  const items = [
+    { title: 'Classificar explicitamente o tipo de demanda antes de transferir', desc: 'Roteamento sem contexto obriga o analista a recomeçar o diagnóstico do zero.' },
+    { title: 'Passar contexto completo no handoff para o analista humano', desc: 'Identificado em ~35% das conversas com Airton — maior causa de retrabalho.' },
+    { title: 'Distinguir mensagens automáticas de interações reais do cliente', desc: 'Confusão entre mensagem de sistema e interação do cliente causa respostas inapropriadas.' },
+    { title: 'Garantir triagem inicial (N1) em todas as conversas elegíveis', desc: 'Ausência notável em conversas onde deveria ter feito a triagem antes do analista.' },
+  ];
+  const wrap = document.getElementById('airton-priorities');
+  wrap.innerHTML = items.map((item, i) => `
+    <div class="priority-item">
+      <div class="priority-num">${i+1}</div>
+      <div class="priority-text">
+        <strong>${item.title}</strong>
+        ${item.desc}
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateAirtonSection(data) {
+  const airtonData = computeAirtonEtapas(data);
+  document.getElementById('airton-without').textContent = airtonData.nWithout;
+  const avgWithout = data.filter(r => !r.air).reduce((s,r) => s+r.s, 0) / (airtonData.nWithout || 1);
+  document.getElementById('airton-avg-without').textContent = airtonData.nWithout ? avgWithout.toFixed(1) : '—';
+  document.getElementById('airton-with').textContent = airtonData.nWith;
+  const total = data.length;
+  const pct = total ? Math.round(airtonData.nWith / total * 100) : 0;
+  document.getElementById('airton-pct-title').textContent = 'Participação do Airton: ' + airtonData.nWith + ' de ' + total + ' conversas (' + pct + '%)';
+  const bar = document.getElementById('airton-bar');
+  bar.style.width = pct + '%';
+  bar.textContent = pct + '% — Com Airton';
+  redrawChartAirton(airtonData);
+}
+
+// ── Recomendações (static) ─────────────────────────────────────
+function renderRecomendacoes() {
+  const items = [
+    { icon: '🔥', title: 'Protocolo de Encerramento Obrigatório', urgency: 'Urgente', desc: 'Criar checklist com passo a passo: resumo, confirmação explícita do cliente, próximos passos. Aplicar imediatamente — P7 em 73% das conversas.' },
+    { icon: '🎯', title: 'Treino de Resposta Direta à Pergunta', urgency: 'Alta', desc: 'Workshop focado em: ler a pergunta exata → responder primeiro → complementar depois. P3 em 70% das conversas.' },
+    { icon: '📅', title: 'Prazos Específicos em Toda Proposta', urgency: 'Alta', desc: 'Banir "em breve" e "assim que possível". Toda proposta deve ter data/hora exata. Virtude V3 já existe — ampliar para todos.' },
+    { icon: '📞', title: 'Follow-up com Conteúdo Novo', urgency: 'Alta', desc: 'P1 em 56% das conversas. Criar template de follow-up: atualização concreta + próxima ação + prazo. Nunca "ainda verificando".' },
+    { icon: '💰', title: 'Confirmação Explícita de Valores', urgency: 'Média', desc: 'P10 em 33% das conversas. Toda proposta deve finalizar com "confirmo o valor de R$ X nas condições Y — você aceita?"' },
+    { icon: '🤖', title: 'Handoff Rico do Airton', urgency: 'Média', desc: 'Airton deve enviar contexto completo ao analista: tipo de demanda, histórico resumido, cliente identificado. Elimina retrabalho em 49% das conversas.' },
+  ];
+  const colors = ['#ef4444','#f97316','#f97316','#eab308','#eab308','#3b82f6'];
+  const wrap = document.getElementById('recomendacoes');
+  wrap.innerHTML = items.map((item, i) => `
+    <div style="display:flex;gap:.75rem;align-items:flex-start;padding:.6rem;border-radius:8px;background:rgba(255,255,255,0.03);margin-bottom:.5rem">
+      <div style="font-size:1.1rem;flex-shrink:0">${item.icon}</div>
+      <div>
+        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:2px">
+          <span style="font-size:13px;font-weight:700">${item.title}</span>
+          <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:${colors[i]}22;color:${colors[i]}">${item.urgency}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted)">${item.desc}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Conversation Table ─────────────────────────────────────────
+let baseFilteredData = [];  // date-filtered data (from applyFilter)
+let convFilteredData = [];  // further filtered by conv selects
+let convSortCol = 0, convSortDir = 1;
+
+function filterConversas() {
+  const ana = document.getElementById('filterAnalista').value;
+  const cls = document.getElementById('filterClassif').value;
+  const prob = document.getElementById('filterProb').value;
+  convFilteredData = baseFilteredData.filter(r => {
+    if (ana && r.a !== ana) return false;
+    if (cls && r.c !== cls) return false;
+    if (prob && !r.p.includes(prob)) return false;
+    return true;
+  });
+  convSortCol = -1;
+  renderConvTable(convFilteredData);
+}
+
+function clearConvFilters() {
+  document.getElementById('filterAnalista').value = '';
+  document.getElementById('filterClassif').value = '';
+  document.getElementById('filterProb').value = '';
+  convFilteredData = [...baseFilteredData];
+  renderConvTable(convFilteredData);
+}
+
+function sortConv(col) {
+  if (convSortCol === col) convSortDir *= -1;
+  else { convSortCol = col; convSortDir = col === 2 ? -1 : 1; }
+  convFilteredData.sort((a, b) => {
+    if (col === 0) return convSortDir * a.d.localeCompare(b.d);
+    if (col === 1) return convSortDir * a.a.localeCompare(b.a);
+    if (col === 2) return convSortDir * (a.s - b.s);
+    return 0;
+  });
+  ['csa0','csa1','csa2'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.className = 'sort-arrow';
+      if (i === convSortCol) el.classList.add(convSortDir === 1 ? 'asc' : 'desc');
+    }
+  });
+  renderConvTable(convFilteredData);
+}
+
+function renderConvTable(data) {
+  const tbody = document.getElementById('convBody');
+  const badge = document.getElementById('conv-count-badge');
+  const showing = document.getElementById('conv-showing');
+  badge.textContent = data.length;
+  showing.textContent = 'Exibindo ' + data.length + ' de ' + baseFilteredData.length + ' conversas';
+  tbody.innerHTML = '';
+  data.forEach(r => {
+    const clr = scoreColor(r.s);
+    const dateDisplay = r.d.substring(8,10) + '/' + r.d.substring(5,7);
+    const probPills = r.p.map(p =>
+      `<span class="pill" style="font-size:10px;padding:2px 7px;background:${PROB_COLOR_MAP[p]||'#94a3b8'}22;color:${PROB_COLOR_MAP[p]||'#94a3b8'};border-color:${PROB_COLOR_MAP[p]||'#94a3b8'}44">${p}</span>`
+    ).join(' ');
+    const virtPills = r.v.map(v =>
+      `<span class="pill" style="font-size:10px;padding:2px 7px;background:${VIRT_COLOR_MAP[v]||'#94a3b8'}22;color:${VIRT_COLOR_MAP[v]||'#94a3b8'};border-color:${VIRT_COLOR_MAP[v]||'#94a3b8'}44">${v}</span>`
+    ).join(' ');
+    const airBadge = r.air ? '<span style="font-size:9px;padding:1px 5px;border-radius:10px;background:#3b82f622;color:#60a5fa;border:1px solid #3b82f644">Airton</span>' : '';
+    tbody.innerHTML += `
+      <tr>
+        <td>${dateDisplay}</td>
+        <td><a class="analyst-link" onclick="scrollToAnalyst('${r.a}')">${r.a}</a> ${airBadge}</td>
+        <td><span style="font-weight:700;color:${clr}">${r.s}</span></td>
+        <td><span class="score-badge" style="font-size:11px;padding:3px 9px;background:${classifColor(r.c)}22;color:${classifColor(r.c)}">${r.c}</span></td>
+        <td>${probPills || '<span style="color:var(--text-muted);font-size:11px">—</span>'}</td>
+        <td>${virtPills || '<span style="color:var(--text-muted);font-size:11px">—</span>'}</td>
+        <td style="max-width:260px;font-size:11px;color:var(--text-muted);white-space:normal">${r.h || ''}</td>
+      </tr>
+    `;
+  });
+}
+
+// ── applyFilter — master re-render ─────────────────────────────
+function applyFilter() {
+  filterFrom = document.getElementById('filter-from').value;
+  filterTo   = document.getElementById('filter-to').value;
+  const data = getFiltered();
+
+  // Update status badge
+  const status = document.getElementById('filter-status');
+  if (filterFrom || filterTo) {
+    const range = [filterFrom, filterTo].filter(Boolean).join(' → ');
+    status.textContent = data.length + ' conversas · ' + range;
+  } else {
+    status.textContent = '';
+  }
+
+  // Recompute aggregates
+  const kpis    = computeKPIs(data);
+  const probs   = computeProblems(data);
+  const virts   = computeVirtues(data);
+  const daily   = computeDaily(data);
+  const dist    = computeDist(data);
+  const analystStats = computeAnalystStats(data);
+
+  // Update KPI cards
+  updateKPIs(kpis, data);
+
+  // Redraw charts
+  redrawChartTemporal(daily);
+  redrawChartDist(dist);
+  redrawChartProblemas(probs, currentProbMode);
+  redrawChartVirtudes(virts);
+  redrawChartRadar(analystStats);
+
+  // Store current problems for toggle
+  currentProblemsData = probs;
+
+  // Update analyst ranking table
+  renderRankingFromStats(analystStats);
+
+  // Update etapa bars
+  renderEtapaBars(analystStats);
+
+  // Update dist bars
+  renderDistBars(dist, kpis.n);
+
+  // Update virtudes legend
+  renderVirtudesLegend(virts);
+
+  // Update Airton section
+  updateAirtonSection(data);
+
+  // Update conversation table
+  baseFilteredData = data;
+  convFilteredData = [...data];
+  // Reset conv sub-filters
+  document.getElementById('filterAnalista').value = '';
+  document.getElementById('filterClassif').value = '';
+  document.getElementById('filterProb').value = '';
+  renderConvTable(data);
+}
+
+function toggleProblemas(mode) {
+  currentProbMode = mode;
+  document.getElementById('btnAbs').classList.toggle('active', mode === 'abs');
+  document.getElementById('btnPct').classList.toggle('active', mode === 'pct');
+  redrawChartProblemas(currentProblemsData, mode);
+}
+
+// ── Filter button wiring ───────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('filter-apply').addEventListener('click', applyFilter);
+  document.getElementById('filter-clear').addEventListener('click', () => {
+    document.getElementById('filter-from').value = '';
+    document.getElementById('filter-to').value = '';
+    filterFrom = '';
+    filterTo = '';
+    applyFilter();
+  });
+
+  // Update meta from real data
+  const dates = RAW.map(r => r.d).sort();
+  if (dates.length) {
+    const fmtDate = iso => iso.substring(8,10) + '/' + iso.substring(5,7);
+    document.getElementById('meta-period').textContent =
+      fmtDate(dates[0]) + ' a ' + fmtDate(dates[dates.length-1]) + ' de ' + dates[0].substring(0,4);
+    document.getElementById('meta-count').textContent = RAW.length + ' conversas auditadas';
+  }
+
+  // Static sections
+  renderAnalystCards();
+  renderAirtonPriorities();
+  renderRecomendacoes();
+
+  // Initial render (all data)
+  Chart.defaults.color = '#94a3b8';
+  Chart.defaults.borderColor = 'rgba(255,255,255,0.08)';
+  applyFilter();
+});
+</script>
+</body>
+</html>

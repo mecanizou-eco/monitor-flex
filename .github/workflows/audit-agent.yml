@@ -89,6 +89,13 @@ jobs:
         if: github.event.inputs.dry_run != 'true'
         run: python3 scripts/generate_audit_pdfs.py
 
+      - name: Gera relatório HTML interativo e envia ao Slack
+        if: github.event.inputs.dry_run != 'true'
+        env:
+          SLACK_REPORT_CHANNEL: ${{ secrets.SLACK_REPORT_CHANNEL }}
+        run: |
+          python3 scripts/generate_audit_report.py --post-slack
+
       - name: Avisa no Slack se falhar
         if: failure()
         env:
