@@ -90,6 +90,8 @@ CANONICAL_ORDER = [
     "problemas_padronizados",
     "virtudes_padronizadas",
     "sugestoes_melhoria",
+    "sugestoes_analista",
+    "sugestoes_airton",
     "observacoes",
     # --- complementos exigidos pela rubrica ---
     "classificacao",
@@ -371,7 +373,10 @@ def roles_from_participants(participants: list) -> dict:
         if binding.get("address"):
             roles[binding["address"]] = "Cliente"
         if identity:
-            roles[identity] = "Atendente"
+            if "airton" in identity.lower():
+                roles[identity] = "Airton (IA)"
+            else:
+                roles[identity] = "Analista"
     return roles
 
 
@@ -433,9 +438,12 @@ def build_transcript(conv: dict, messages: list, roles: dict) -> dict:
     for m in messages:
         autor = m.get("author") or ""
         if customer_addrs:
-            papel = "Cliente" if autor in customer_addrs else "Atendente"
+            if autor in customer_addrs:
+                papel = "Cliente"
+            else:
+                papel = roles.get(autor, "Analista")
         else:
-            papel = "Cliente" if _looks_like_customer_addr(autor) else "Atendente"
+            papel = "Cliente" if _looks_like_customer_addr(autor) else "Analista"
         corpo = (m.get("body") or "").strip()
         midia = m.get("media")
         if not corpo and midia:
@@ -493,10 +501,15 @@ def build_audit_tool() -> dict:
                     "type": "array", "items": {"type": "string"},
                     "description": "Códigos de virtude aplicáveis (ex.: V2, V3). Vazio se nenhum.",
                 },
-                "sugestoes_melhoria": {
+                "sugestoes_analista": {
                     "type": "array", "items": {"type": "string"},
-                    "description": "Sugestões objetivas de melhoria para o atendente ou para o processo. "
-                                   "Vazio se não houver nada a melhorar.",
+                    "description": "Sugestões objetivas de melhoria exclusivamente para o ANALISTA HUMANO. "
+                                   "Não misture com melhorias do Airton. Vazio se não houver.",
+                },
+                "sugestoes_airton": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Sugestões objetivas de melhoria exclusivamente para o AIRTON (IA). "
+                                   "Não misture com melhorias do analista. Vazio se não houver.",
                 },
                 "historico_task": {
                     "type": "string",
@@ -510,7 +523,8 @@ def build_audit_tool() -> dict:
                 },
             },
             "required": ["etapas", "problemas", "virtudes",
-                         "sugestoes_melhoria", "historico_task", "observacoes"],
+                         "sugestoes_analista", "sugestoes_airton",
+                         "historico_task", "observacoes"],
         },
     }
 
@@ -609,7 +623,8 @@ def finalize_evaluation(transcript: dict, tool_input: dict, model: str) -> dict:
         "etapas": etapas,
         "problemas": tool_input.get("problemas") or [],
         "virtudes": tool_input.get("virtudes") or [],
-        "sugestoes": tool_input.get("sugestoes_melhoria") or [],
+        "sugestoes": tool_input.get("sugestoes_analista") or [],
+        "sugestoes_airton": tool_input.get("sugestoes_airton") or [],
         "historico_task": (tool_input.get("historico_task") or "").strip(),
         "observacoes": (tool_input.get("observacoes") or "").strip(),
         "modelo": model,
@@ -662,6 +677,8 @@ def build_field_values(ev: dict) -> dict:
         "problemas_padronizados": ", ".join(ev["problemas"]),
         "virtudes_padronizadas": ", ".join(ev["virtudes"]),
         "sugestoes_melhoria": " | ".join(ev.get("sugestoes") or []),
+        "sugestoes_analista": " | ".join(ev.get("sugestoes") or []),
+        "sugestoes_airton": " | ".join(ev.get("sugestoes_airton") or []),
         "observacoes": ev["observacoes"],
         "classificacao": ev["classificacao"],
         "historico_task": ev.get("historico_task") or "",
@@ -828,11 +845,11 @@ def build_summary_tool() -> dict:
                         "(ex: 'Positivo, com atenção à velocidade da primeira resposta')."
                     ),
                 },
-                "oportunidades": {
+                "oportunidades_time": {
                     "type": "object",
                     "description": (
-                        "Principal oportunidade em cada eixo. Use string vazia se não houver "
-                        "nada relevante naquele eixo nas auditorias do dia."
+                        "Principal oportunidade de melhoria do TIME HUMANO em cada eixo. "
+                        "Use string vazia se não houver nada relevante nas auditorias do dia."
                     ),
                     "properties": {
                         "velocidade": {"type": "string"},
@@ -841,6 +858,20 @@ def build_summary_tool() -> dict:
                         "cordialidade": {"type": "string"},
                     },
                     "required": ["velocidade", "processo", "eficiencia", "cordialidade"],
+                },
+                "oportunidades_airton": {
+                    "type": "object",
+                    "description": (
+                        "Principal oportunidade de melhoria do AIRTON (assistente virtual IA) "
+                        "em cada eixo. Use string vazia se não houver evidências nas auditorias. "
+                        "Se o Airton não apareceu nas conversas auditadas, deixe tudo vazio."
+                    ),
+                    "properties": {
+                        "roteamento": {"type": "string"},
+                        "contexto_handoff": {"type": "string"},
+                        "mensagens_automaticas": {"type": "string"},
+                    },
+                    "required": ["roteamento", "contexto_handoff", "mensagens_automaticas"],
                 },
                 "destaques": {
                     "type": "array",
@@ -855,7 +886,8 @@ def build_summary_tool() -> dict:
                     "description": "UMA proposta acionável de melhoria para a semana.",
                 },
             },
-            "required": ["sentimento", "oportunidades", "destaques", "proposta_semana"],
+            "required": ["sentimento", "oportunidades_time", "oportunidades_airton",
+                         "destaques", "proposta_semana"],
         },
     }
 
@@ -873,7 +905,8 @@ def _evaluations_digest(evaluations: list) -> str:
             f"{etapas}\n"
             f"    problemas: {'; '.join(ev.get('problemas') or []) or '—'}\n"
             f"    virtudes: {'; '.join(ev.get('virtudes') or []) or '—'}\n"
-            f"    sugestoes: {' | '.join(ev.get('sugestoes') or []) or '—'}\n"
+            f"    sugestoes_analista: {' | '.join(ev.get('sugestoes') or []) or '—'}\n"
+            f"    sugestoes_airton: {' | '.join(ev.get('sugestoes_airton') or []) or '—'}\n"
             f"    obs: {ev.get('observacoes') or '—'}"
         )
     return "\n".join(linhas)
@@ -892,8 +925,10 @@ def generate_summary(env: dict, model: str, evaluations: list) -> dict:
     user_content = (
         f"Auditorias do dia ({len(evaluations)} conversas):\n\n"
         f"{_evaluations_digest(evaluations)}\n\n"
-        "Sintetize os eixos Velocidade, Processo, Eficiência e Cordialidade, destaque o que "
-        "foi bem e proponha UMA ação para a semana."
+        "Sintetize as oportunidades do TIME HUMANO nos eixos Velocidade, Processo, Eficiência e "
+        "Cordialidade, e separadamente as oportunidades do AIRTON (IA) nos eixos Roteamento, "
+        "Contexto de Handoff e Mensagens Automáticas. Destaque o que foi bem e proponha UMA "
+        "ação para a semana."
     )
     body = {
         "model": model,
@@ -932,12 +967,18 @@ def render_summary_slack(evaluations: list, summary: dict) -> str:
     dist = " · ".join(f"{k} {v}" for k, v in contagem.items() if v)
 
     ts = datetime.now(BRT).strftime("%d/%m")
-    op = summary.get("oportunidades") or {}
-    eixos = [
-        ("Velocidade", op.get("velocidade")),
-        ("Processo", op.get("processo")),
-        ("Eficiência", op.get("eficiencia")),
-        ("Cordialidade", op.get("cordialidade")),
+    op_time = summary.get("oportunidades_time") or {}
+    op_airton = summary.get("oportunidades_airton") or {}
+    eixos_time = [
+        ("Velocidade", op_time.get("velocidade")),
+        ("Processo", op_time.get("processo")),
+        ("Eficiência", op_time.get("eficiencia")),
+        ("Cordialidade", op_time.get("cordialidade")),
+    ]
+    eixos_airton = [
+        ("Roteamento", op_airton.get("roteamento")),
+        ("Contexto de handoff", op_airton.get("contexto_handoff")),
+        ("Mensagens automáticas", op_airton.get("mensagens_automaticas")),
     ]
 
     lines = [
@@ -947,11 +988,21 @@ def render_summary_slack(evaluations: list, summary: dict) -> str:
         "",
         f"*Sentimento:* {summary.get('sentimento') or '—'}",
         "",
-        "*Principais oportunidades*",
+        "*Oportunidades do time*",
     ]
-    for nome, txt in eixos:
-        if txt and txt.strip():
-            lines.append(f"• {nome}: {txt.strip()}")
+    time_items = [(n2, t) for n2, t in eixos_time if t and t.strip()]
+    for nome, txt in time_items:
+        lines.append(f"• {nome}: {txt.strip()}")
+    if not time_items:
+        lines.append("_Nenhuma oportunidade identificada para o time._")
+
+    airton_items = [(n2, t) for n2, t in eixos_airton if t and t.strip()]
+    lines.append("")
+    lines.append("*Oportunidades do Airton (IA)*")
+    for nome, txt in airton_items:
+        lines.append(f"• {nome}: {txt.strip()}")
+    if not airton_items:
+        lines.append("_Nenhuma oportunidade identificada para o Airton._")
 
     destaques = [d for d in (summary.get("destaques") or []) if d and d.strip()]
     if destaques:
