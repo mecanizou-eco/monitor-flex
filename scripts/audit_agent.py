@@ -422,28 +422,50 @@ def _looks_like_customer_addr(author: str) -> bool:
     return author.startswith(("whatsapp:", "sms:", "messenger:", "+"))
 
 
+def _classify_author(autor: str, conv_sid: str, customer_addrs: set, roles: dict) -> str:
+    """Classifica o papel de um autor de mensagem.
+
+    Regras (em ordem de prioridade):
+    1. Endereço de canal do cliente (whatsapp:+55...) → "Cliente"
+    2. Literal "airton" (case-insensitive) → "Airton (IA)"  [novo UID desde 21/07/2026]
+    3. Literal "system" (case-insensitive) → "Sistema (auto)"
+    4. SID da própria conversa (autor = CH...) → "Sistema (auto)"  [saudação automática]
+    5. Identity mapeado nos participantes → papel do mapa
+    6. Endereço que parece número de telefone → "Cliente" (fallback)
+    7. Qualquer outro → "Analista"
+    """
+    if autor in customer_addrs:
+        return "Cliente"
+    autor_low = autor.lower()
+    if autor_low == "airton":
+        return "Airton (IA)"
+    if autor_low == "system":
+        return "Sistema (auto)"
+    if autor == conv_sid:
+        return "Sistema (auto)"
+    if autor in roles:
+        return roles[autor]
+    if _looks_like_customer_addr(autor):
+        return "Cliente"
+    return "Analista"
+
+
 def build_transcript(conv: dict, messages: list, roles: dict) -> dict:
     """Monta um transcript legível + metadados da conversa.
 
-    Numa conversa de suporte há só dois lados: o CLIENTE (cujo endereço de
-    WhatsApp/SMS conhecemos pelos participantes) e o ATENDIMENTO. As mensagens
-    do atendimento nem sempre vêm identificadas por um nome/identity — no Twilio
-    Conversations a resposta do negócio costuma ter o `author` igual ao SID da
-    conversa (ex.: 'CH...') e `participant_sid` nulo. Por isso a regra é:
-    autor que bate com o endereço do cliente = Cliente; qualquer outro autor
-    (SID, identity de atendente, bot, resposta automática) = Atendente.
+    Papéis identificados:
+    - Cliente      — endereço de WhatsApp/SMS do cliente externo
+    - Airton (IA)  — mensagens com author='Airton' (novo UID desde 21/07/2026)
+    - Analista     — atendente humano (identity no Flex)
+    - Sistema (auto) — author='System' ou author=SID da conversa (mensagens automáticas:
+                       saudação de roteamento, "cotação pronta", "pedido feito", etc.)
     """
+    conv_sid = conv.get("sid") or ""
     customer_addrs = {addr for addr, papel in roles.items() if papel == "Cliente"}
     linhas = []
     for m in messages:
         autor = m.get("author") or ""
-        if customer_addrs:
-            if autor in customer_addrs:
-                papel = "Cliente"
-            else:
-                papel = roles.get(autor, "Analista")
-        else:
-            papel = "Cliente" if _looks_like_customer_addr(autor) else "Analista"
+        papel = _classify_author(autor, conv_sid, customer_addrs, roles)
         corpo = (m.get("body") or "").strip()
         midia = m.get("media")
         if not corpo and midia:
@@ -451,7 +473,7 @@ def build_transcript(conv: dict, messages: list, roles: dict) -> dict:
         ts = m.get("date_created") or ""
         linhas.append(f"[{ts}] {papel}: {corpo}")
     return {
-        "conversation_sid": conv.get("sid"),
+        "conversation_sid": conv_sid,
         "friendly_name": conv.get("friendly_name") or "",
         "state": conv.get("state") or "",
         "date_created": conv.get("date_created"),
