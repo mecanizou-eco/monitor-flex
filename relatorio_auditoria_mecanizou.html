@@ -338,6 +338,32 @@
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  /* FILTER SELECT */
+  .filter-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+    cursor: pointer;
+  }
+  /* EXPORT BUTTON */
+  .export-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all .15s;
+    display: flex;
+    align-items: center;
+    gap: .3rem;
+    white-space: nowrap;
+  }
+  .export-btn:hover { border-color: var(--accent); color: var(--accent); }
 </style>
 </head>
 <body>
@@ -372,10 +398,27 @@
     <input type="date" id="filter-from" class="filter-input" min="2026-07-01" max="2026-12-31">
     <span class="filter-sep">→</span>
     <input type="date" id="filter-to" class="filter-input" min="2026-07-01" max="2026-12-31">
+    <select id="filter-analyst" class="filter-input filter-select" style="min-width:170px">
+      <option value="">Todos os analistas</option>
+    </select>
+    <select id="filter-prob-header" class="filter-input filter-select" style="min-width:180px">
+      <option value="">Todos os problemas</option>
+      <option value="P1">P1 — Follow-up ausente</option>
+      <option value="P2">P2 — 1ª resposta fora do SLA</option>
+      <option value="P3">P3 — Não respondeu à pergunta</option>
+      <option value="P4">P4 — Duplicidade / transferência</option>
+      <option value="P5">P5 — Negativa sem explicação</option>
+      <option value="P6">P6 — Informação incorreta</option>
+      <option value="P7">P7 — Encerramento sem confirmação</option>
+      <option value="P8">P8 — Escalonamento tardio</option>
+      <option value="P9">P9 — Tom inadequado</option>
+      <option value="P10">P10 — Valor não confirmado</option>
+      <option value="P11">P11 — Cotação duplicada</option>
+    </select>
     <button class="filter-btn" id="filter-apply">Aplicar</button>
     <button class="filter-btn filter-btn-ghost" id="filter-clear">Limpar</button>
     <span class="filter-status" id="filter-status"></span>
-    <span class="filter-label" style="margin-left:auto">Gerado em: <span id="gen-ts">27/07/2026 13:12</span></span>
+    <span class="filter-label" style="margin-left:auto">Gerado em: <span id="gen-ts">28/07/2026 10:54</span></span>
   </div>
 </div>
 
@@ -676,7 +719,7 @@
 // RECORDS — Individual conversation data
 // ═══════════════════════════════════════════════════════════════════
 // RECORDS_PLACEHOLDER_START
-const RAW = [{"d":"2026-07-02","a":"Italo Luiz","s":52,"c":"Abaixo do esperado","p":["P2","P3","P7","P10"],"v":["V2","V4"],"e":[5,8,8,14,12,5],"h":"O cliente solicitou urgência na entrega de peças; o atendente verificou o status, forneceu link de rastreamento e, cerca","air":true},{"d":"2026-07-02","a":"Daniela Crevelari","s":76,"c":"Bom","p":["P7","P10"],"v":["V2","V3"],"e":[8,22,15,16,11,4],"h":"O cliente enviou anexos solicitando cotação de peças de suspensão para um Nissan Kicks (placa KXG9J03); o atendente (IA ","air":true},{"d":"2026-07-02","a":"Paula Santos","s":57,"c":"Abaixo do esperado","p":["P3","P5","P7","P10"],"v":["V2"],"e":[7,18,11,10,9,2],"h":"O cliente buscava cotação para um cilindro mestre de freio com especificação técnica específica (código SBC1194B / Contr","air":false},{"d":"2026-07-02","a":"Giovanna Mathias","s":44,"c":"Abaixo do esperado","p":["P1","P3","P6","P7","P10"],"v":["V4"],"e":[6,14,9,8,5,2],"h":"Cliente solicitou cancelamento de pedido com atraso e informações incorretas de prazo que prejudicaram seu cliente final","air":false},{"d":"2026-07-02","a":"Daniela Crevelari","s":62,"c":"Regular","p":["P3","P7","P10"],"v":["V2"],"e":[7,18,11,13,9,4],"h":"Cliente solicitou cotação de atuador do câmbio para um Peugeot 208 (GCU9C75); a primeira cotação enviada continha uma pe","air":false},{"d":"2026-07-02","a":"Daniela Crevelari","s":50,"c":"Abaixo do esperado","p":["P1","P3","P6","P7","P10"],"v":["V3"],"e":[6,14,10,10,5,5],"h":"Cliente solicitou três orçamentos distintos (bandeja Peugeot 206, pistão com anéis 050 para Palio e pistão com anéis 050","air":false},{"d":"2026-07-02","a":"Paula Santos","s":66,"c":"Regular","p":["P1","P7","P10"],"v":["V1","V3"],"e":[8,20,16,14,4,4],"h":"Cliente (provavelmente um mecânico ou lojista) enviou três solicitações de cotação sequenciais para veículos distintos (","air":false},{"d":"2026-07-02","a":"Daniela Crevelari","s":60,"c":"Regular","p":["P4","P10","P7"],"v":["V3","V2"],"e":[5,18,10,14,9,4],"h":"Cliente solicitou cotação de múltiplas peças para um Fiat Doblo Cargo 1.8 2015 (homocinética, velas, coxim, embreagem, c","air":false},{"d":"2026-07-02","a":"Renata Santana","s":55,"c":"Abaixo do esperado","p":["P7","P1"],"v":["V1"],"e":[6,18,12,12,4,3],"h":"O cliente perguntou sobre a existência de um catálogo de peças; o atendente (do financeiro) orientou sobre o uso do site","air":true},{"d":"2026-07-02","a":"Paula Santos","s":54,"c":"Abaixo do esperado","p":["P4","P1","P3","P7","P10"],"v":["V2","V3"],"e":[4,10,9,13,12,6],"h":"Cliente solicitou a troca de uma cebolinha de óleo e o atendimento, após duplicidade de atendentes (com o cliente precis","air":true},{"d":"2026-07-02","a":"Paula Santos","s":64,"c":"Regular","p":["P1","P7","P5"],"v":["V3"],"e":[7,18,14,15,6,4],"h":"O cliente enviou o número do pedido (NMQ-1E97) com uma lista de 15 peças para um VW SpaceFox 2008/2009; o atendente gero","air":true},{"d":"2026-07-06","a":"Giovanna Mathias","s":64,"c":"Regular","p":["P3","P7","P10"],"v":["V2"],"e":[7,18,12,12,11,4],"h":"O cliente solicitou orçamento de 9 itens de suspensão para um Gol 1.0 16v 2000; o atendimento gerou uma cotação com apen","air":false},{"d":"2026-07-06","a":"Daniela Crevelari","s":68,"c":"Regular","p":["P4","P7","P10"],"v":["V3","V4"],"e":[7,20,14,14,10,3],"h":"O cliente enviou dois anexos com dados para cotação de peças (jogo de pistão com anéis 0,50 e comando de válvula para o ","air":false},{"d":"2026-07-06","a":"Giovanna Mathias","s":58,"c":"Abaixo do esperado","p":["P6","P7","P11"],"v":["V2","V3"],"e":[6,18,10,12,8,4],"h":"Cliente solicitou cotações de três grupos de peças (eletroventilador, resistência/conector e silencioso traseiro) ao lon","air":false},{"d":"2026-07-06","a":"Paula Santos","s":74,"c":"Regular","p":["P6","P7","P10"],"v":["V1","V3"],"e":[8,20,15,15,11,5],"h":"Cliente solicitou dois orçamentos distintos: kit corrente de distribuição para um Hyundai HR 2013 e pastilhas de freio d","air":true},{"d":"2026-07-06","a":"Italo Luiz","s":68,"c":"Regular","p":["P3","P6","P10","P7"],"v":["V2","V3"],"e":[7,19,14,14,11,3],"h":"O cliente solicitou cotações de duas peças distintas (junta do cabeçote metálica para um Fiat Uno 2014 e disco articulad","air":false},{"d":"2026-07-06","a":"Lucas Lima+twilio","s":48,"c":"Abaixo do esperado","p":["P1","P3","P5","P7","P10"],"v":[],"e":[6,16,11,9,3,3],"h":"O cliente buscava cotação de um Radiador de Ar Quente (código 5U0819030B, aparentemente modelo Valeo) e enviou múltiplos","air":false},{"d":"2026-07-06","a":"Paula Santos","s":45,"c":"Abaixo do esperado","p":["P1","P3","P7","P11"],"v":[],"e":[6,16,9,7,3,4],"h":"O cliente solicitou cotação de uma carcaça de válvula termostática para um Kia Picanto, mas os itens cotados não corresp","air":false},{"d":"2026-07-06","a":"Italo Luiz","s":65,"c":"Regular","p":["P1","P7","P10"],"v":["V3"],"e":[8,20,16,13,4,4],"h":"Cliente buscou cotação de motor de arranque para um Fiat Uno Way Dualogic 2016; o atendente respondeu em segundos, gerou","air":false},{"d":"2026-07-06","a":"Lucas Lima+twilio","s":68,"c":"Regular","p":["P6","P7"],"v":["V2","V3","V4"],"e":[8,17,12,13,12,6],"h":"Cliente (oficina/revendedor) solicitou cotação de caixa de direção mecânica para Honda HR-V 2015/2016; a cotação foi ger","air":false},{"d":"2026-07-06","a":"Lucas Lima+twilio","s":55,"c":"Abaixo do esperado","p":["P3","P5","P7","P10"],"v":["V2"],"e":[8,20,12,8,5,2],"h":"O cliente solicitou cotação de coifa do lado direito do eixo câmbio para um Peugeot 307; a IA gerou uma cotação em ~3 mi","air":false},{"d":"2026-07-06","a":"Daniela Crevelari","s":34,"c":"Crítico","p":["P1","P3","P5","P7","P10"],"v":[],"e":[6,14,5,4,3,2],"h":"Cliente (Caram Serviços) queria comprar 36 unidades de óleo mas se deparou com taxas inesperadas no carrinho e pediu exp","air":false},{"d":"2026-07-06","a":"Giovanna Mathias","s":63,"c":"Regular","p":["P1","P3","P7","P10"],"v":["V4"],"e":[6,17,15,11,7,7],"h":"O cliente relatou recebimento de peças erradas no pedido 354622047, com itens corretos faltantes. O atendente coletou fo","air":true},{"d":"2026-07-06","a":"Daniela Crevelari","s":49,"c":"Abaixo do esperado","p":["P1","P3","P7","P10"],"v":[],"e":[7,18,10,8,4,2],"h":"Cliente solicitou cotação de kit amortecedor dianteiro para veículo de placa EZN2295 (possivelmente modelo Axios). O ate","air":false},{"d":"2026-07-06","a":"Italo Luiz","s":62,"c":"Regular","p":["P3","P5","P7","P10"],"v":["V2"],"e":[8,20,13,9,9,3],"h":"O cliente solicitou cotação de buchas de suspensão traseira para um Honda CR-V (placa KKV6C19), depois pediu itens adici","air":false},{"d":"2026-07-07","a":"Daniela Crevelari","s":53,"c":"Abaixo do esperado","p":["P1","P3","P4","P6","P7"],"v":[],"e":[7,12,12,10,8,4],"h":"Cliente solicitou cotação de tampa de válvulas para Toyota Corolla 2009 (EBR8699); o atendimento entregou erroneamente c","air":false},{"d":"2026-07-07","a":"Giovanna Mathias","s":68,"c":"Regular","p":["P3","P7"],"v":["V2","V3"],"e":[7,10,12,15,18,6],"h":"Cliente enviou um anexo (provavelmente foto/lista de peças) para cotação de amortecedores e coxins para um Hyundai HB20S","air":false},{"d":"2026-07-07","a":"Italo Luiz","s":38,"c":"Crítico","p":["P1","P2","P3","P7"],"v":[],"e":[4,7,10,9,5,3],"h":"O cliente reclamou de um estorno incorreto (recebeu R$ 52,98 em vez de R$ 66,66, faltando R$ 13,68) e apresentou comprov","air":true},{"d":"2026-07-07","a":"Italo Luiz","s":80,"c":"Bom","p":["P7"],"v":["V2","V3","V4"],"e":[9,13,16,15,21,6],"h":"Cliente (LIONS SEMINOVOS) solicitou cotação de tampa de válvulas e esticador de correia de acessórios para uma Fiat Fior","air":false},{"d":"2026-07-07","a":"Paula Santos","s":81,"c":"Bom","p":["P1"],"v":["V2","V3"],"e":[8,13,16,17,20,7],"h":"O cliente solicitou duas cotações distintas — filtro de óleo para EFFA V21 e jogo de tapetes para GM Onix —, ambas entre","air":true},{"d":"2026-07-07","a":"Lucas Lima+twilio","s":48,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":[],"e":[5,10,12,12,5,4],"h":"Cliente consultou o status de entrega de um eixo (pedido 448500822); após ~15 minutos sem retorno e uma cobrança do clie","air":false},{"d":"2026-07-07","a":"Thiago Leite","s":35,"c":"Crítico","p":["P1","P3","P7","P10"],"v":["V3"],"e":[5,7,6,8,4,5],"h":"Cliente (mecânico/oficina) relatou que uma junta não havia chegado no prazo prometido, causando constrangimento com seu ","air":false},{"d":"2026-07-08","a":"Daniela Crevelari","s":69,"c":"Regular","p":["P1"],"v":["V1","V3"],"e":[7,11,15,13,16,7],"h":"A cliente (secretária de oficina) solicitou cotação de junta de cabeçote + parafuso para um Duster 2016/2017 e, em segui","air":true},{"d":"2026-07-08","a":"Daniela Crevelari","s":37,"c":"Crítico","p":[],"v":["V1"],"e":[4,7,5,5,8,8],"h":"O cliente aparentemente havia sido atendido com sucesso (demanda não identificada na transcrição disponível) e a convers","air":false},{"d":"2026-07-08","a":"Thiago Leite","s":43,"c":"Abaixo do esperado","p":["P1","P3","P4","P7","P10"],"v":["V3","V4"],"e":[5,8,9,10,8,3],"h":"Cliente (mecânico/revendedor) solicitou cotações de múltiplas peças para três veículos diferentes (Palio GDI8518, Gol DM","air":false},{"d":"2026-07-08","a":"Daniela Crevelari","s":48,"c":"Abaixo do esperado","p":["P1","P3","P6","P7"],"v":[],"e":[6,8,11,9,10,4],"h":"Cliente entrou com dúvida sobre informações incompletas em uma solicitação de devolução já existente (protocolo RET ativ","air":true},{"d":"2026-07-08","a":"Lucas Lima+twilio","s":70,"c":"Regular","p":["P1","P3"],"v":["V2","V3"],"e":[8,11,15,14,18,4],"h":"O cliente solicitou cotação de trocador de calor para um Dodge Ram 2500 2006 diesel. O atendimento identificou o item, m","air":true},{"d":"2026-07-08","a":"Paula Santos","s":53,"c":"Abaixo do esperado","p":["P1","P3","P4","P10"],"v":["V3"],"e":[6,10,11,11,10,5],"h":"O cliente entrou solicitando cotação de filtro de óleo e combustível para a placa EUP7016, depois trouxe uma demanda de ","air":false},{"d":"2026-07-08","a":"Giovanna Mathias","s":63,"c":"Regular","p":["P4","P7"],"v":["V2","V3"],"e":[6,11,11,15,14,6],"h":"Cliente buscava uma mangueira de radiador para seu Hyundai HB20 e enviou foto da peça; após troca de atendente com perda","air":false},{"d":"2026-07-08","a":"Paula Santos","s":52,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":[],"e":[6,11,12,10,10,3],"h":"Cliente relatou não recebimento de uma peça (Tensor da Correia) de um pedido que constava como entregue no sistema. O at","air":false},{"d":"2026-07-08","a":"Lucas Lima+twilio","s":78,"c":"Bom","p":[],"v":["V1","V2","V3"],"e":[8,13,15,15,20,7],"h":"Cliente (mecânico/lojista) solicitou cotação de sensor de rotação para um VW Jetta (FSN3J26); após refinamentos pediu a ","air":true},{"d":"2026-07-09","a":"Thiago Leite","s":18,"c":"Crítico","p":["P1","P3","P6","P7","P9"],"v":[],"e":[4,6,5,2,0,1],"h":"Cliente solicitou cotação de uma extensa lista de peças automotivas (suspensão, motor, filtros, etc.). O atendimento foi","air":false},{"d":"2026-07-09","a":"Giovanna Mathias","s":69,"c":"Regular","p":["P7","P3","P10"],"v":["V2","V4"],"e":[7,12,14,13,18,5],"h":"Cliente solicitou urgência na entrega do pedido 539096698 para o mesmo dia; o atendimento confirmou o status, informou p","air":true},{"d":"2026-07-09","a":"","s":10,"c":"Crítico","p":["P1","P3","P7"],"v":[],"e":[3,4,0,0,0,3],"h":"O cliente entrou em contato fora do horário comercial (21h54) e recebeu apenas respostas automáticas informando o horári","air":true},{"d":"2026-07-09","a":"Thiago Leite","s":58,"c":"Abaixo do esperado","p":["P3","P7","P10"],"v":["V2","V4"],"e":[7,10,12,11,14,4],"h":"Cliente solicitou cotação de coxim do motor inferior para Renault Megane Grand Tour 2008 e, após aprovação, também pediu","air":false},{"d":"2026-07-09","a":"","s":8,"c":"Crítico","p":["P1","P3","P7"],"v":[],"e":[3,3,0,0,0,2],"h":"O cliente (secretária Isabella) entrou em contato às 21h08 de uma terça-feira apenas com uma saudação, recebeu duas veze","air":false},{"d":"2026-07-09","a":"Thiago Leite","s":73,"c":"Regular","p":["P3","P7"],"v":["V2","V3"],"e":[8,12,15,14,18,6],"h":"Cliente (oficina/revendedor) solicitou cotação de pastilha de freio dianteiro para uma Fiat Toro 1.3 2024/25; o atendent","air":false},{"d":"2026-07-09","a":"Daniela Crevelari","s":64,"c":"Regular","p":["P1","P6","P10"],"v":["V2","V3","V4"],"e":[6,8,13,13,17,7],"h":"Cliente relatou recebimento incompleto de pedido de calços de mola (4 itens pedidos, 1 superior faltante já instalado). ","air":true},{"d":"2026-07-09","a":"Thiago Leite","s":32,"c":"Crítico","p":["P1","P3","P7"],"v":[],"e":[5,8,10,4,3,2],"h":"Cliente solicitou cotação de 3 peças para Chevrolet Onix Plus 2023/2024, fornecendo todos os dados do veículo; o atenden","air":false},{"d":"2026-07-09","a":"","s":15,"c":"Crítico","p":["P1","P3","P7"],"v":[],"e":[4,4,3,2,0,2],"h":"O cliente entrou em contato em um feriado solicitando informações sobre uma Válvula Mprop para Ford Transit. Recebeu ape","air":true},{"d":"2026-07-10","a":"Daniela Crevelari","s":60,"c":"Regular","p":["P3","P7"],"v":["V2","V3"],"e":[7,8,14,12,14,5],"h":"Cliente solicitou cotação de 5 peças do sistema de arrefecimento para um Mercedes-Benz GLA 200; o atendente coletou a pl","air":false},{"d":"2026-07-10","a":"Lucas Lima+twilio","s":29,"c":"Crítico","p":["P1","P3","P5","P7"],"v":[],"e":[3,7,7,6,5,1],"h":"Cliente entrou em contato pedindo cotação de peças para um Mercedes-Benz GLA200 (ano 2019/2020), incluindo bomba d'água,","air":true},{"d":"2026-07-10","a":"Lucas Lima+twilio","s":45,"c":"Abaixo do esperado","p":["P4","P1","P7","P3"],"v":["V2"],"e":[3,7,8,10,15,2],"h":"O cliente Jonas entrou em contato aparentemente para tirar dúvida sobre especificações de uma peça (medidas 23/25) e/ou ","air":true},{"d":"2026-07-10","a":"Lucas Lima+twilio","s":56,"c":"Abaixo do esperado","p":["P1","P7"],"v":["V3","V4"],"e":[5,9,13,14,10,5],"h":"O cliente (mecânico/oficina) precisava receber peças no mesmo dia para finalizar um serviço; o atendente orientou-o a fa","air":true},{"d":"2026-07-10","a":"Giovanna Mathias","s":61,"c":"Regular","p":["P3","P6","P7"],"v":["V2","V4"],"e":[5,8,13,13,17,5],"h":"Cliente reportou que múltiplas peças de um pedido não chegaram (6 IDs, totalizando 8 unidades), sendo os coxins os mais ","air":false},{"d":"2026-07-10","a":"Paula Santos","s":73,"c":"Regular","p":["P1"],"v":["V1","V3"],"e":[8,11,14,15,18,7],"h":"Cliente informou a placa do veículo e solicitou cotação de sensor de temperatura; o atendimento entregou cotação com ite","air":false},{"d":"2026-07-10","a":"Daniela Crevelari","s":71,"c":"Regular","p":["P3","P7"],"v":["V1","V3"],"e":[8,12,15,12,18,6],"h":"Cliente solicitou cotação de 4 bicos injetores Bosch para um VW Gol 2004. O atendimento entregou a cotação em ~6 min, ma","air":false},{"d":"2026-07-10","a":"Giovanna Mathias","s":47,"c":"Abaixo do esperado","p":["P1","P3","P5"],"v":[],"e":[6,10,12,9,5,5],"h":"Cliente solicitou cotação de mangueira de retorno da direção hidráulica (com especificação por foto) para um Corsa 2004/","air":true},{"d":"2026-07-10","a":"Daniela Crevelari","s":55,"c":"Abaixo do esperado","p":[],"v":[],"e":[4,8,10,10,15,8],"h":"O cliente enviou uma mensagem de agradecimento ('Obrigado') sem apresentar nenhuma nova demanda; o atendente respondeu c","air":true},{"d":"2026-07-13","a":"Paula Santos","s":72,"c":"Regular","p":["P6"],"v":["V2","V3","V1"],"e":[7,11,14,14,18,8],"h":"Cliente solicitou cotação de rolamento 6006 para um Fiat Palio Weekend Adventure 2009; o atendente gerou a cotação com t","air":true},{"d":"2026-07-13","a":"Italo Luiz","s":61,"c":"Regular","p":["P1","P6","P7"],"v":["V3","V4"],"e":[7,12,13,13,10,6],"h":"O cliente realizou três cotações distintas em sequência (sapata/tambor para GM Corsa, kit de suspensão/correias para Fia","air":false},{"d":"2026-07-13","a":"Lucas Lima+twilio","s":60,"c":"Regular","p":["P1","P3","P4"],"v":["V3","V4"],"e":[7,11,12,14,8,8],"h":"Cliente relatou ausência de 1 tubo no pedido 967636515; após diagnóstico inicial equivocado (IA abriu cotação indevida) ","air":false},{"d":"2026-07-13","a":"Lucas Lima+twilio","s":41,"c":"Abaixo do esperado","p":["P1","P2","P3","P7"],"v":[],"e":[6,9,11,8,5,2],"h":"O cliente (Branco Auto Center) entrou em contato cobrando a retirada de diversas peças pendentes de devolução há quase u","air":false},{"d":"2026-07-13","a":"Paula Santos","s":59,"c":"Abaixo do esperado","p":["P1"],"v":["V1","V3"],"e":[6,11,12,14,10,6],"h":"O cliente abriu atendimento (via mídia/anexo) para tratar uma devolução de peça retirada na segunda-feira anterior; o at","air":true},{"d":"2026-07-13","a":"Daniela Crevelari","s":60,"c":"Regular","p":["P1","P3","P6"],"v":["V3"],"e":[8,11,14,13,8,6],"h":"O cliente solicitou cotação de junta da base do filtro de óleo para um Citroën C3 2009/2010 1.4. A cotação foi entregue ","air":true},{"d":"2026-07-13","a":"Thiago Leite","s":57,"c":"Abaixo do esperado","p":["P4","P3","P7"],"v":["V3"],"e":[6,10,13,13,10,5],"h":"O cliente buscava um filtro KX24 com entrega no mesmo dia; o atendente humano informou o prazo de corte (16h45) e a IA g","air":true},{"d":"2026-07-13","a":"Giovanna Mathias","s":80,"c":"Bom","p":[],"v":["V1","V2","V3","V4"],"e":[8,13,16,16,20,7],"h":"Cliente solicitou cotação de kit revisão (óleo Motul 5W40, filtro de óleo, ar, combustível e cabine) para BMW X2 placa F","air":true},{"d":"2026-07-13","a":"Giovanna Mathias","s":51,"c":"Abaixo do esperado","p":["P3","P7"],"v":["V3"],"e":[6,10,10,13,8,4],"h":"Cliente reclamou que seu radiador (pedido 959509562) ainda não havia chegado; a atendente informou que a entrega estava ","air":true},{"d":"2026-07-13","a":"Italo Luiz","s":44,"c":"Abaixo do esperado","p":["P1","P2","P3","P7"],"v":[],"e":[5,7,12,10,5,5],"h":"Cliente de uma oficina mecânica (LM Car) entrou em contato solicitando cotação de par de amortecedor dianteiro para um v","air":true},{"d":"2026-07-14","a":"Daniela Crevelari","s":55,"c":"Abaixo do esperado","p":["P1","P3","P6"],"v":["V4"],"e":[6,8,13,10,12,6],"h":"O cliente buscava cotação de um bico injetor específico para seu Hyundai Creta; o atendimento entregou a cotação, mas co","air":true},{"d":"2026-07-14","a":"Paula Santos","s":25,"c":"Crítico","p":["P3","P7"],"v":[],"e":[4,5,5,3,5,3],"h":"O cliente enviou apenas um agradecimento, possivelmente como continuação de atendimento anterior; o atendente respondeu ","air":false},{"d":"2026-07-14","a":"Italo Luiz","s":64,"c":"Regular","p":["P3","P6","P7","P10"],"v":["V2"],"e":[6,10,12,13,18,5],"h":"O cliente solicitou cotação de uma correia 6PK1215; o atendimento forneceu primeiro uma cotação incorreta (veículo errad","air":false},{"d":"2026-07-14","a":"Daniela Crevelari","s":63,"c":"Regular","p":["P6","P1"],"v":["V2","V4"],"e":[8,11,13,10,14,7],"h":"Cliente de oficina solicitou cotação de peças do sistema de escape com catalisador para um Volkswagen T-Cross Sense 1.0 ","air":false},{"d":"2026-07-14","a":"Paula Santos","s":74,"c":"Regular","p":["P11"],"v":["V2","V3"],"e":[7,12,15,15,18,7],"h":"Cliente solicitou cotação de peças de suspensão para uma Meriva 1.4 2010 e de motor de arranque para um Palio 1.0 1996; ","air":false},{"d":"2026-07-14","a":"Daniela Crevelari","s":53,"c":"Abaixo do esperado","p":["P1","P3","P4"],"v":["V3","V4"],"e":[6,9,12,11,8,7],"h":"O cliente entrou para tratar indisponibilidade de óleo (estornado por falta de fornecedor), solicitou cotação de tensor ","air":true},{"d":"2026-07-14","a":"Thiago Leite","s":43,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":[],"e":[6,9,12,8,5,3],"h":"O cliente consultou o status do pedido 59054307 com urgência, preocupado se as peças chegariam no dia. O atendimento for","air":false},{"d":"2026-07-14","a":"Paula Santos","s":49,"c":"Abaixo do esperado","p":["P3","P1","P7","P10"],"v":["V3"],"e":[6,9,10,10,10,4],"h":"Cliente solicitou cotação de motor de esguicho para seu Onix Sedã 2022; a atendente enviou a cotação antes de confirmar ","air":false},{"d":"2026-07-14","a":"Italo Luiz","s":53,"c":"Abaixo do esperado","p":["P3","P7"],"v":["V2"],"e":[7,10,14,10,10,2],"h":"O cliente solicitou cotação de alternador e bateria para um Renault Kardian 2024/25. O atendente entregou a cotação da b","air":false},{"d":"2026-07-14","a":"Daniela Crevelari","s":42,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":[],"e":[6,8,12,9,4,3],"h":"Cliente de oficina cadastrada solicitou cotação de coifas homocinéticas, coifas lado caixa e rolamentos para um Palio. O","air":true},{"d":"2026-07-15","a":"Italo Luiz","s":25,"c":"Crítico","p":["P1","P3","P7","P10"],"v":[],"e":[3,4,5,7,4,2],"h":"O cliente entrou em contato com o intuito de tratar uma devolução já solicitada e saber quando receberia o Pix do estorn","air":false},{"d":"2026-07-15","a":"Italo Luiz","s":48,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":[],"e":[6,12,11,11,5,3],"h":"O cliente solicitou cotação de garfo de embreagem e kit reparo para uma Kombi 1.4 2012. O atendimento gerou a cotação co","air":false},{"d":"2026-07-15","a":"Italo Luiz","s":66,"c":"Regular","p":["P3","P7"],"v":["V1","V3"],"e":[8,12,17,14,10,5],"h":"Cliente solicitou cotação de amortecedor dianteiro para um Honda Civic 2004 — o atendimento identificou o veículo pela p","air":true},{"d":"2026-07-15","a":"Paula Santos","s":68,"c":"Regular","p":["P11"],"v":["V2","V3"],"e":[7,10,13,15,16,7],"h":"Cliente buscou cotação de tubo da bomba d'água para uma Sprinter 415 CDI (placa DZD7390); a atendente Paula processou a ","air":false},{"d":"2026-07-21","a":"Daniela Crevelari","s":65,"c":"Regular","p":["P1","P3","P7"],"v":["V3"],"e":[8,12,14,13,12,6],"h":"Cliente de oficina solicitou cotação de coxim do amortecedor traseiro e kit da haste para um Honda WR-V 2020. A cotação ","air":false},{"d":"2026-07-21","a":"Bruno Ferreira","s":59,"c":"Abaixo do esperado","p":["P4","P3","P7"],"v":["V3"],"e":[7,11,12,15,10,4],"h":"Cliente solicitou cotação de coxim, kit batente amortecedor traseiro e catalisador para um Cobalt 2014 1.8 (placa FRK0J7","air":true},{"d":"2026-07-21","a":"Renata Santana","s":36,"c":"Crítico","p":["P1","P7"],"v":[],"e":[4,9,8,7,5,3],"h":"O cliente enviou um comprovante de pagamento Santander via anexo sem explicar o contexto; o Airton (N1) não conseguiu le","air":true},{"d":"2026-07-21","a":"Daniela Crevelari","s":66,"c":"Regular","p":["P3","P4","P10"],"v":["V2","V3"],"e":[7,10,13,13,16,7],"h":"O cliente solicitou cotações de sensor ABS para um Fiat Punto e retentor de semi-eixo para uma GM Spin; ambas as cotaçõe","air":true},{"d":"2026-07-21","a":"Daniela Crevelari","s":54,"c":"Abaixo do esperado","p":["P3","P6","P7","P10"],"v":["V3"],"e":[6,9,13,11,10,5],"h":"O cliente queria comprar um scanner automotivo com capacidades específicas (carros novos, recuo de pinça EPB, troca de c","air":true},{"d":"2026-07-21","a":"Lucas Lima+twilio","s":72,"c":"Regular","p":["P10"],"v":["V1","V2","V3"],"e":[6,12,14,15,18,7],"h":"O cliente relatou dificuldade ao aplicar um cupom de troca (valor maior que o real da devolução). Lucas diagnosticou o e","air":true},{"d":"2026-07-21","a":"Lucas Lima+twilio","s":66,"c":"Regular","p":["P2"],"v":["V2","V3"],"e":[7,10,14,13,14,8],"h":"Cliente solicitou cotação de mangueira de direção hidráulica para Hyundai Veracruz 2013 3.8 V6; o atendimento coletou pl","air":true},{"d":"2026-07-21","a":"Daniela Crevelari","s":68,"c":"Regular","p":["P3","P10"],"v":["V1","V2"],"e":[7,10,14,14,16,7],"h":"Cliente solicitou cotação de 02 bandejas de suspensão superior para um Porsche Panamera 2018. O atendimento resultou em ","air":true},{"d":"2026-07-21","a":"Paula Santos","s":72,"c":"Regular","p":["P3"],"v":["V2","V3"],"e":[7,12,15,13,18,7],"h":"O cliente solicitou cotação do módulo de acionamento da bomba elétrica para um GM Tracker 2023; a atendente Paula entreg","air":true},{"d":"2026-07-21","a":"Paula Santos","s":74,"c":"Regular","p":["P3","P6"],"v":["V1","V3"],"e":[9,13,17,14,15,6],"h":"Cliente solicitou cotação de 5 peças para um GM Onix 2019; o Airton identificou o veículo, coletou a única informação fa","air":true},{"d":"2026-07-21","a":"Paula Santos","s":56,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":["V3"],"e":[7,10,13,12,8,6],"h":"O cliente solicitou cotações de duas peças (atuador de marcha lenta para Honda Civic e trocador de calor para Honda HR-V","air":true},{"d":"2026-07-21","a":"Thiago Leite","s":63,"c":"Regular","p":["P4","P3","P7"],"v":["V2","V3"],"e":[5,9,12,13,18,6],"h":"O cliente solicitou cotação de cubo traseiro (Honda City FTT2993) e recebeu a cotação; em seguida reportou que um rolame","air":true},{"d":"2026-07-21","a":"Thiago Leite","s":69,"c":"Regular","p":["P3","P10"],"v":["V1","V2","V3"],"e":[8,10,14,14,16,7],"h":"Cliente solicitou cotação de atuador de pedal de embreagem para um Ford Focus 2004 (placa DNY0E98); o atendente gerou ra","air":true},{"d":"2026-07-21","a":"Paula Santos","s":55,"c":"Abaixo do esperado","p":["P1","P7"],"v":["V1"],"e":[6,10,12,12,10,5],"h":"O cliente abriu atendimento pedindo uma imagem de uma peça que chamou de 'coração' e não conseguiu enviar a foto de refe","air":true},{"d":"2026-07-21","a":"Lucas Lima+twilio","s":52,"c":"Abaixo do esperado","p":["P7"],"v":[],"e":[5,8,10,10,12,7],"h":"O cliente enviou um agradecimento (\"Obg\"), sinalizando que sua demanda prévia havia sido atendida. O atendente correspon","air":false},{"d":"2026-07-21","a":"Bruno Ferreira","s":60,"c":"Regular","p":["P1","P3","P7"],"v":["V1","V3"],"e":[8,12,14,13,10,3],"h":"O cliente enviou placa e chassi solicitando uma cotação de motor de partida para um Honda City 2015, e o Airton identifi","air":true},{"d":"2026-07-21","a":"Thiago Leite","s":68,"c":"Regular","p":["P4","P3"],"v":["V2","V3"],"e":[7,11,13,14,17,6],"h":"O cliente enviou fotos/mídia solicitando cotação de bomba d'água, suporte e anel o'ring da válvula termostática para um ","air":false},{"d":"2026-07-21","a":"Paula Santos","s":75,"c":"Bom","p":["P3","P10","P7"],"v":["V2","V3"],"e":[8,11,17,15,18,6],"h":"Cliente solicitou cotação de maçaneta interna dianteira direita para Fiat Uno Mille 1995/96 (placa CCA-6106); a atendent","air":true},{"d":"2026-07-21","a":"Paula Santos","s":73,"c":"Regular","p":["P1","P10"],"v":["V2","V4"],"e":[8,11,16,13,18,7],"h":"Cliente solicitou cotação de 4 bielas de motor para um Nissan Kicks 2023. O atendimento entregou a cotação em ~10 min co","air":true},{"d":"2026-07-21","a":"Thiago Leite","s":41,"c":"Abaixo do esperado","p":["P1","P3","P5","P6","P7"],"v":[],"e":[6,9,10,7,5,4],"h":"O cliente solicitou primeiro uma cotação de radiador para um BMW X3 2014, que não teve ofertas disponíveis; em seguida, ","air":false},{"d":"2026-07-21","a":"Paula Santos","s":65,"c":"Regular","p":["P1","P6"],"v":["V1","V4"],"e":[7,10,13,13,16,6],"h":"O cliente queria visualizar fotos de duas mangueiras Fiat para confirmar se os códigos correspondiam às peças corretas, ","air":true},{"d":"2026-07-21","a":"Italo Luiz","s":39,"c":"Crítico","p":["P1","P3","P7","P10"],"v":[],"e":[7,9,10,6,5,2],"h":"O cliente entrou em contato relatando problema com um hidrovácuo cotado via link da Mecanizou (parafuso localizado em po","air":true},{"d":"2026-07-21","a":"Italo Luiz","s":17,"c":"Crítico","p":["P7"],"v":[],"e":[3,6,8,0,0,0],"h":"O cliente parecia estar em processo de cotação de autopeças e o atendente tentou qualificar qual veículo usar, mas a con","air":false},{"d":"2026-07-21","a":"Lucas Lima+twilio","s":47,"c":"Abaixo do esperado","p":["P1","P3","P5","P7"],"v":["V3"],"e":[6,11,13,10,5,2],"h":"O cliente entrou em contato para saber se todas as peças do pedido #663195611 chegariam no dia; o atendente informou que","air":true},{"d":"2026-07-21","a":"Thiago Leite","s":42,"c":"Abaixo do esperado","p":["P3","P5","P7"],"v":[],"e":[5,7,10,6,10,4],"h":"Cliente de oficina solicitou cotação de eixo traseiro para Toyota Etios Sedan XLS 2015 1.5; o atendente buscou a peça, i","air":true},{"d":"2026-07-22","a":"Thiago Leite","s":56,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":["V3"],"e":[7,10,13,14,8,4],"h":"O cliente solicitou cotação de todas as mangueiras para um Fiat Palio 2011 (placa EYD6F38); o atendimento identificou o ","air":false},{"d":"2026-07-22","a":"Paula Santos","s":63,"c":"Regular","p":["P11","P1","P3"],"v":["V2","V3"],"e":[7,10,13,13,14,6],"h":"Cliente (aparentemente um mecânico ou revendedor) solicitou cotações para múltiplos veículos e peças (Audi Q3 — vela/bob","air":false},{"d":"2026-07-22","a":"Paula Santos","s":42,"c":"Abaixo do esperado","p":["P1","P7","P10"],"v":["V3","V4"],"e":[5,9,8,10,5,5],"h":"O cliente recebeu um produto errado (palheta Valeo no lugar de tubo de arrefecimento Valclei VC602) e solicitou reenvio ","air":true},{"d":"2026-07-22","a":"Italo Luiz","s":43,"c":"Abaixo do esperado","p":["P1","P3","P4","P7"],"v":[],"e":[5,10,10,10,5,3],"h":"Cliente solicitou informação sobre o status do pedido 740626315; após 45 minutos de silêncio e cobrança explícita do cli","air":false},{"d":"2026-07-22","a":"Bruno Ferreira","s":44,"c":"Abaixo do esperado","p":["P1","P3","P4","P7","P10"],"v":[],"e":[6,10,12,8,6,2],"h":"Cliente entrou em contato questionando uma nota fiscal que teria recebido sem ter realizado compra alguma na Mecanizou; ","air":false},{"d":"2026-07-22","a":"Thiago Leite","s":31,"c":"Crítico","p":["P3","P1","P7"],"v":[],"e":[4,8,5,4,5,5],"h":"O cliente solicitou o cadastro de um segundo número de telefone (11995119374) e pediu que o contato fosse feito por esse","air":true},{"d":"2026-07-22","a":"Lucas Lima+twilio","s":56,"c":"Abaixo do esperado","p":["P3","P1","P7"],"v":["V4"],"e":[8,12,13,11,8,4],"h":"Cliente solicitou cotação de múltiplas peças de suspensão para um Ford Fusion 2013 (FKW2C27); o atendimento gerou cotaçõ","air":true},{"d":"2026-07-22","a":"Giovanna Mathias","s":50,"c":"Abaixo do esperado","p":["P1","P2","P3","P7"],"v":["V2"],"e":[5,6,11,11,14,3],"h":"O cliente entrou em contato com dúvida sobre a cotação COT-525586 (ponta de eixo traseiro lado esquerdo de Ford Fiesta).","air":false},{"d":"2026-07-22","a":"Paula Santos","s":72,"c":"Regular","p":["P3","P10"],"v":["V2","V3"],"e":[8,12,15,13,18,6],"h":"Cliente enviou solicitação de cotação de Radiador e Tampa Radiador para um Chrysler Caravan 1999; o atendimento processo","air":false},{"d":"2026-07-22","a":"Bruno Ferreira","s":40,"c":"Abaixo do esperado","p":["P1","P3","P6","P7"],"v":[],"e":[5,7,8,9,5,6],"h":"O cliente solicitou cotação de jogo de parafuso de cabeçote e, posteriormente, esticador de corrente INA para um Kia Bon","air":true},{"d":"2026-07-23","a":"Thiago Leite","s":51,"c":"Abaixo do esperado","p":["P1","P4","P7"],"v":[],"e":[5,10,10,13,8,5],"h":"Cliente solicitou cotação de caixa de direção hidráulica para Ford Ka 2011; a IA iniciou a qualificação, mas o handoff p","air":false},{"d":"2026-07-23","a":"Giovanna Mathias","s":69,"c":"Regular","p":["P3","P10"],"v":["V2","V3","V4"],"e":[7,10,15,14,17,6],"h":"Cliente (aparentemente um mecânico/intermediário) solicitou cotação de bico injetor para um VW Fox 1.0 2008 Flex; o aten","air":true},{"d":"2026-07-23","a":"Daniela Crevelari","s":56,"c":"Abaixo do esperado","p":["P1","P4","P7","P10"],"v":["V3"],"e":[8,12,12,11,8,5],"h":"O cliente queria saber se o Bujão Adaptador Reservatório Cilindro Mestre (pedido #835311488) chegaria no mesmo dia; o Ai","air":true},{"d":"2026-07-23","a":"Paula Santos","s":69,"c":"Regular","p":["P3","P10"],"v":["V2","V3","V4"],"e":[7,10,15,13,18,6],"h":"O cliente solicitou cotação de óleo 0W20 SP em tambor de 200L para uso em múltiplos veículos de oficina (SP). O atendime","air":false},{"d":"2026-07-23","a":"Thiago Leite","s":52,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":["V3"],"e":[7,11,12,11,5,6],"h":"O cliente solicitou cotação de embreagem completa e atuador de embreagem para um HB20 2024; a cotação dos kits foi entre","air":false},{"d":"2026-07-23","a":"Daniela Crevelari","s":56,"c":"Abaixo do esperado","p":["P3","P7"],"v":["V3"],"e":[8,10,15,13,5,5],"h":"O cliente solicitou cotação de 12 itens para um GM Prisma 2018. O atendimento identificou o veículo e cotou 11 dos 12 it","air":false},{"d":"2026-07-23","a":"Bruno Ferreira","s":54,"c":"Abaixo do esperado","p":["P7","P3"],"v":["V2","V4"],"e":[6,10,14,11,10,3],"h":"O cliente entrou em contato para acompanhar a entrega de um kit de correia e tampa, com o carro já no elevador aguardand","air":true},{"d":"2026-07-23","a":"Daniela Crevelari","s":67,"c":"Regular","p":["P1","P3","P6"],"v":["V1","V4"],"e":[7,11,13,13,16,7],"h":"O cliente questionou se seu pedido #823975024 seria entregue no dia; o Airton informou inicialmente que havia atraso e n","air":true},{"d":"2026-07-23","a":"Thiago Leite","s":44,"c":"Abaixo do esperado","p":["P1","P3","P7","P10"],"v":["V4"],"e":[6,8,10,9,8,3],"h":"O cliente queria saber se as peças de uma cotação para Peugeot 2008 chegariam no mesmo dia; o atendimento confirmou entr","air":false},{"d":"2026-07-23","a":"Paula Santos","s":43,"c":"Abaixo do esperado","p":["P1","P3","P6","P7"],"v":[],"e":[5,9,10,7,6,6],"h":"O cliente solicitou cotação de reparo de caixa de direção para um Fiat Uno 2012 (placa EZN4B74) e, em seguida, também pe","air":false},{"d":"2026-07-24","a":"Bruno Ferreira","s":60,"c":"Regular","p":["P1","P3","P7"],"v":["V2","V3"],"e":[7,11,13,11,14,4],"h":"O cliente solicitou cotação de duas demandas distintas: válvula termostática e bieleta traseira para um Dodge Journey (F","air":false},{"d":"2026-07-24","a":"Giovanna Mathias","s":65,"c":"Regular","p":["P2","P1"],"v":["V2","V4"],"e":[6,8,14,14,17,6],"h":"O cliente solicitou cotação de par de amortecedor traseiro para o mesmo veículo de uma cotação anterior (Chrysler 300C).","air":true},{"d":"2026-07-24","a":"Italo Luiz","s":67,"c":"Regular","p":["P7"],"v":["V2","V4"],"e":[7,10,13,14,18,5],"h":"O cliente solicitou cotação de radiador para um Mitsubishi ASX 2.0 2016. O atendente gerou a cotação (NOTUS, R$738,12) s","air":true},{"d":"2026-07-24","a":"Daniela Crevelari","s":55,"c":"Abaixo do esperado","p":["P1","P3","P4","P6"],"v":["V3"],"e":[7,9,11,12,9,7],"h":"O cliente relatou entrega incompleta do pedido #835855777, informando que havia recebido apenas 1 bucha de 4 encomendada","air":true},{"d":"2026-07-24","a":"Italo Luiz","s":54,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":["V1"],"e":[6,10,12,13,10,3],"h":"O cliente (oficina mecânica) solicitou cotação de 24 litros de óleo 5W30 e, posteriormente, de um carregador de bateria ","air":false},{"d":"2026-07-24","a":"Thiago Leite","s":65,"c":"Regular","p":["P4"],"v":["V2","V4"],"e":[6,8,10,14,20,7],"h":"O atendimento foi proativo: o cliente não apresentou demanda — o contato serviu para acompanhar e confirmar a entrega do","air":true},{"d":"2026-07-24","a":"Lucas Lima+twilio","s":62,"c":"Regular","p":["P3","P7"],"v":["V2"],"e":[7,11,15,11,16,2],"h":"Cliente enviou foto de uma peça solicitando cotação de válvula termostática para um Kia Picanto 2011; o atendimento gero","air":false},{"d":"2026-07-24","a":"Giovanna Mathias","s":67,"c":"Regular","p":["P3","P5","P7"],"v":["V2","V4"],"e":[7,10,14,12,18,6],"h":"O cliente enviou anexos para identificação do veículo (GM Montana 2005) e solicitou cotação de 'Gaiola'; o atendimento e","air":true},{"d":"2026-07-24","a":"Thiago Leite","s":78,"c":"Bom","p":["P1","P7"],"v":["V3","V4"],"e":[9,13,16,16,18,6],"h":"Cliente (oficina/revendedor) solicitou cotação de 11 itens para um Fiat 500 2012; o Airton entregou a cotação completa e","air":true},{"d":"2026-07-24","a":"Bruno Ferreira","s":62,"c":"Regular","p":["P3","P7"],"v":["V1","V3"],"e":[8,11,16,13,10,4],"h":"Cliente solicitou cotação de junta do suporte do filtro de óleo para Peugeot 207 SW 2009 1.4; a IA qualificou o veículo,","air":true}];
+const RAW = [{"d":"2026-07-02","a":"Italo Luiz","s":52,"c":"Abaixo do esperado","p":["P2","P3","P7","P10"],"v":["V2","V4"],"e":[5,8,8,14,12,5],"h":"O cliente solicitou urgência na entrega de peças; o atendente verificou o status, forneceu link de rastreamento e, cerca","air":true},{"d":"2026-07-02","a":"Daniela Crevelari","s":76,"c":"Bom","p":["P7","P10"],"v":["V2","V3"],"e":[8,22,15,16,11,4],"h":"O cliente enviou anexos solicitando cotação de peças de suspensão para um Nissan Kicks (placa KXG9J03); o atendente (IA ","air":true},{"d":"2026-07-02","a":"Paula Santos","s":57,"c":"Abaixo do esperado","p":["P3","P5","P7","P10"],"v":["V2"],"e":[7,18,11,10,9,2],"h":"O cliente buscava cotação para um cilindro mestre de freio com especificação técnica específica (código SBC1194B / Contr","air":false},{"d":"2026-07-02","a":"Giovanna Mathias","s":44,"c":"Abaixo do esperado","p":["P1","P3","P6","P7","P10"],"v":["V4"],"e":[6,14,9,8,5,2],"h":"Cliente solicitou cancelamento de pedido com atraso e informações incorretas de prazo que prejudicaram seu cliente final","air":false},{"d":"2026-07-02","a":"Daniela Crevelari","s":62,"c":"Regular","p":["P3","P7","P10"],"v":["V2"],"e":[7,18,11,13,9,4],"h":"Cliente solicitou cotação de atuador do câmbio para um Peugeot 208 (GCU9C75); a primeira cotação enviada continha uma pe","air":false},{"d":"2026-07-02","a":"Daniela Crevelari","s":50,"c":"Abaixo do esperado","p":["P1","P3","P6","P7","P10"],"v":["V3"],"e":[6,14,10,10,5,5],"h":"Cliente solicitou três orçamentos distintos (bandeja Peugeot 206, pistão com anéis 050 para Palio e pistão com anéis 050","air":false},{"d":"2026-07-02","a":"Paula Santos","s":66,"c":"Regular","p":["P1","P7","P10"],"v":["V1","V3"],"e":[8,20,16,14,4,4],"h":"Cliente (provavelmente um mecânico ou lojista) enviou três solicitações de cotação sequenciais para veículos distintos (","air":false},{"d":"2026-07-02","a":"Daniela Crevelari","s":60,"c":"Regular","p":["P4","P10","P7"],"v":["V3","V2"],"e":[5,18,10,14,9,4],"h":"Cliente solicitou cotação de múltiplas peças para um Fiat Doblo Cargo 1.8 2015 (homocinética, velas, coxim, embreagem, c","air":false},{"d":"2026-07-02","a":"Renata Santana","s":55,"c":"Abaixo do esperado","p":["P7","P1"],"v":["V1"],"e":[6,18,12,12,4,3],"h":"O cliente perguntou sobre a existência de um catálogo de peças; o atendente (do financeiro) orientou sobre o uso do site","air":true},{"d":"2026-07-02","a":"Paula Santos","s":54,"c":"Abaixo do esperado","p":["P4","P1","P3","P7","P10"],"v":["V2","V3"],"e":[4,10,9,13,12,6],"h":"Cliente solicitou a troca de uma cebolinha de óleo e o atendimento, após duplicidade de atendentes (com o cliente precis","air":true},{"d":"2026-07-02","a":"Paula Santos","s":64,"c":"Regular","p":["P1","P7","P5"],"v":["V3"],"e":[7,18,14,15,6,4],"h":"O cliente enviou o número do pedido (NMQ-1E97) com uma lista de 15 peças para um VW SpaceFox 2008/2009; o atendente gero","air":true},{"d":"2026-07-06","a":"Giovanna Mathias","s":64,"c":"Regular","p":["P3","P7","P10"],"v":["V2"],"e":[7,18,12,12,11,4],"h":"O cliente solicitou orçamento de 9 itens de suspensão para um Gol 1.0 16v 2000; o atendimento gerou uma cotação com apen","air":false},{"d":"2026-07-06","a":"Daniela Crevelari","s":68,"c":"Regular","p":["P4","P7","P10"],"v":["V3","V4"],"e":[7,20,14,14,10,3],"h":"O cliente enviou dois anexos com dados para cotação de peças (jogo de pistão com anéis 0,50 e comando de válvula para o ","air":false},{"d":"2026-07-06","a":"Giovanna Mathias","s":58,"c":"Abaixo do esperado","p":["P6","P7","P11"],"v":["V2","V3"],"e":[6,18,10,12,8,4],"h":"Cliente solicitou cotações de três grupos de peças (eletroventilador, resistência/conector e silencioso traseiro) ao lon","air":false},{"d":"2026-07-06","a":"Paula Santos","s":74,"c":"Regular","p":["P6","P7","P10"],"v":["V1","V3"],"e":[8,20,15,15,11,5],"h":"Cliente solicitou dois orçamentos distintos: kit corrente de distribuição para um Hyundai HR 2013 e pastilhas de freio d","air":true},{"d":"2026-07-06","a":"Italo Luiz","s":68,"c":"Regular","p":["P3","P6","P10","P7"],"v":["V2","V3"],"e":[7,19,14,14,11,3],"h":"O cliente solicitou cotações de duas peças distintas (junta do cabeçote metálica para um Fiat Uno 2014 e disco articulad","air":false},{"d":"2026-07-06","a":"Lucas Lima+twilio","s":48,"c":"Abaixo do esperado","p":["P1","P3","P5","P7","P10"],"v":[],"e":[6,16,11,9,3,3],"h":"O cliente buscava cotação de um Radiador de Ar Quente (código 5U0819030B, aparentemente modelo Valeo) e enviou múltiplos","air":false},{"d":"2026-07-06","a":"Paula Santos","s":45,"c":"Abaixo do esperado","p":["P1","P3","P7","P11"],"v":[],"e":[6,16,9,7,3,4],"h":"O cliente solicitou cotação de uma carcaça de válvula termostática para um Kia Picanto, mas os itens cotados não corresp","air":false},{"d":"2026-07-06","a":"Italo Luiz","s":65,"c":"Regular","p":["P1","P7","P10"],"v":["V3"],"e":[8,20,16,13,4,4],"h":"Cliente buscou cotação de motor de arranque para um Fiat Uno Way Dualogic 2016; o atendente respondeu em segundos, gerou","air":false},{"d":"2026-07-06","a":"Lucas Lima+twilio","s":68,"c":"Regular","p":["P6","P7"],"v":["V2","V3","V4"],"e":[8,17,12,13,12,6],"h":"Cliente (oficina/revendedor) solicitou cotação de caixa de direção mecânica para Honda HR-V 2015/2016; a cotação foi ger","air":false},{"d":"2026-07-06","a":"Lucas Lima+twilio","s":55,"c":"Abaixo do esperado","p":["P3","P5","P7","P10"],"v":["V2"],"e":[8,20,12,8,5,2],"h":"O cliente solicitou cotação de coifa do lado direito do eixo câmbio para um Peugeot 307; a IA gerou uma cotação em ~3 mi","air":false},{"d":"2026-07-06","a":"Daniela Crevelari","s":34,"c":"Crítico","p":["P1","P3","P5","P7","P10"],"v":[],"e":[6,14,5,4,3,2],"h":"Cliente (Caram Serviços) queria comprar 36 unidades de óleo mas se deparou com taxas inesperadas no carrinho e pediu exp","air":false},{"d":"2026-07-06","a":"Giovanna Mathias","s":63,"c":"Regular","p":["P1","P3","P7","P10"],"v":["V4"],"e":[6,17,15,11,7,7],"h":"O cliente relatou recebimento de peças erradas no pedido 354622047, com itens corretos faltantes. O atendente coletou fo","air":true},{"d":"2026-07-06","a":"Daniela Crevelari","s":49,"c":"Abaixo do esperado","p":["P1","P3","P7","P10"],"v":[],"e":[7,18,10,8,4,2],"h":"Cliente solicitou cotação de kit amortecedor dianteiro para veículo de placa EZN2295 (possivelmente modelo Axios). O ate","air":false},{"d":"2026-07-06","a":"Italo Luiz","s":62,"c":"Regular","p":["P3","P5","P7","P10"],"v":["V2"],"e":[8,20,13,9,9,3],"h":"O cliente solicitou cotação de buchas de suspensão traseira para um Honda CR-V (placa KKV6C19), depois pediu itens adici","air":false},{"d":"2026-07-07","a":"Daniela Crevelari","s":53,"c":"Abaixo do esperado","p":["P1","P3","P4","P6","P7"],"v":[],"e":[7,12,12,10,8,4],"h":"Cliente solicitou cotação de tampa de válvulas para Toyota Corolla 2009 (EBR8699); o atendimento entregou erroneamente c","air":false},{"d":"2026-07-07","a":"Giovanna Mathias","s":68,"c":"Regular","p":["P3","P7"],"v":["V2","V3"],"e":[7,10,12,15,18,6],"h":"Cliente enviou um anexo (provavelmente foto/lista de peças) para cotação de amortecedores e coxins para um Hyundai HB20S","air":false},{"d":"2026-07-07","a":"Italo Luiz","s":38,"c":"Crítico","p":["P1","P2","P3","P7"],"v":[],"e":[4,7,10,9,5,3],"h":"O cliente reclamou de um estorno incorreto (recebeu R$ 52,98 em vez de R$ 66,66, faltando R$ 13,68) e apresentou comprov","air":true},{"d":"2026-07-07","a":"Italo Luiz","s":80,"c":"Bom","p":["P7"],"v":["V2","V3","V4"],"e":[9,13,16,15,21,6],"h":"Cliente (LIONS SEMINOVOS) solicitou cotação de tampa de válvulas e esticador de correia de acessórios para uma Fiat Fior","air":false},{"d":"2026-07-07","a":"Paula Santos","s":81,"c":"Bom","p":["P1"],"v":["V2","V3"],"e":[8,13,16,17,20,7],"h":"O cliente solicitou duas cotações distintas — filtro de óleo para EFFA V21 e jogo de tapetes para GM Onix —, ambas entre","air":true},{"d":"2026-07-07","a":"Lucas Lima+twilio","s":48,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":[],"e":[5,10,12,12,5,4],"h":"Cliente consultou o status de entrega de um eixo (pedido 448500822); após ~15 minutos sem retorno e uma cobrança do clie","air":false},{"d":"2026-07-07","a":"Thiago Leite","s":35,"c":"Crítico","p":["P1","P3","P7","P10"],"v":["V3"],"e":[5,7,6,8,4,5],"h":"Cliente (mecânico/oficina) relatou que uma junta não havia chegado no prazo prometido, causando constrangimento com seu ","air":false},{"d":"2026-07-08","a":"Daniela Crevelari","s":69,"c":"Regular","p":["P1"],"v":["V1","V3"],"e":[7,11,15,13,16,7],"h":"A cliente (secretária de oficina) solicitou cotação de junta de cabeçote + parafuso para um Duster 2016/2017 e, em segui","air":true},{"d":"2026-07-08","a":"Daniela Crevelari","s":37,"c":"Crítico","p":[],"v":["V1"],"e":[4,7,5,5,8,8],"h":"O cliente aparentemente havia sido atendido com sucesso (demanda não identificada na transcrição disponível) e a convers","air":false},{"d":"2026-07-08","a":"Thiago Leite","s":43,"c":"Abaixo do esperado","p":["P1","P3","P4","P7","P10"],"v":["V3","V4"],"e":[5,8,9,10,8,3],"h":"Cliente (mecânico/revendedor) solicitou cotações de múltiplas peças para três veículos diferentes (Palio GDI8518, Gol DM","air":false},{"d":"2026-07-08","a":"Daniela Crevelari","s":48,"c":"Abaixo do esperado","p":["P1","P3","P6","P7"],"v":[],"e":[6,8,11,9,10,4],"h":"Cliente entrou com dúvida sobre informações incompletas em uma solicitação de devolução já existente (protocolo RET ativ","air":true},{"d":"2026-07-08","a":"Lucas Lima+twilio","s":70,"c":"Regular","p":["P1","P3"],"v":["V2","V3"],"e":[8,11,15,14,18,4],"h":"O cliente solicitou cotação de trocador de calor para um Dodge Ram 2500 2006 diesel. O atendimento identificou o item, m","air":true},{"d":"2026-07-08","a":"Paula Santos","s":53,"c":"Abaixo do esperado","p":["P1","P3","P4","P10"],"v":["V3"],"e":[6,10,11,11,10,5],"h":"O cliente entrou solicitando cotação de filtro de óleo e combustível para a placa EUP7016, depois trouxe uma demanda de ","air":false},{"d":"2026-07-08","a":"Giovanna Mathias","s":63,"c":"Regular","p":["P4","P7"],"v":["V2","V3"],"e":[6,11,11,15,14,6],"h":"Cliente buscava uma mangueira de radiador para seu Hyundai HB20 e enviou foto da peça; após troca de atendente com perda","air":false},{"d":"2026-07-08","a":"Paula Santos","s":52,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":[],"e":[6,11,12,10,10,3],"h":"Cliente relatou não recebimento de uma peça (Tensor da Correia) de um pedido que constava como entregue no sistema. O at","air":false},{"d":"2026-07-08","a":"Lucas Lima+twilio","s":78,"c":"Bom","p":[],"v":["V1","V2","V3"],"e":[8,13,15,15,20,7],"h":"Cliente (mecânico/lojista) solicitou cotação de sensor de rotação para um VW Jetta (FSN3J26); após refinamentos pediu a ","air":true},{"d":"2026-07-09","a":"Thiago Leite","s":18,"c":"Crítico","p":["P1","P3","P6","P7","P9"],"v":[],"e":[4,6,5,2,0,1],"h":"Cliente solicitou cotação de uma extensa lista de peças automotivas (suspensão, motor, filtros, etc.). O atendimento foi","air":false},{"d":"2026-07-09","a":"Giovanna Mathias","s":69,"c":"Regular","p":["P7","P3","P10"],"v":["V2","V4"],"e":[7,12,14,13,18,5],"h":"Cliente solicitou urgência na entrega do pedido 539096698 para o mesmo dia; o atendimento confirmou o status, informou p","air":true},{"d":"2026-07-09","a":"","s":10,"c":"Crítico","p":["P1","P3","P7"],"v":[],"e":[3,4,0,0,0,3],"h":"O cliente entrou em contato fora do horário comercial (21h54) e recebeu apenas respostas automáticas informando o horári","air":true},{"d":"2026-07-09","a":"Thiago Leite","s":58,"c":"Abaixo do esperado","p":["P3","P7","P10"],"v":["V2","V4"],"e":[7,10,12,11,14,4],"h":"Cliente solicitou cotação de coxim do motor inferior para Renault Megane Grand Tour 2008 e, após aprovação, também pediu","air":false},{"d":"2026-07-09","a":"","s":8,"c":"Crítico","p":["P1","P3","P7"],"v":[],"e":[3,3,0,0,0,2],"h":"O cliente (secretária Isabella) entrou em contato às 21h08 de uma terça-feira apenas com uma saudação, recebeu duas veze","air":false},{"d":"2026-07-09","a":"Thiago Leite","s":73,"c":"Regular","p":["P3","P7"],"v":["V2","V3"],"e":[8,12,15,14,18,6],"h":"Cliente (oficina/revendedor) solicitou cotação de pastilha de freio dianteiro para uma Fiat Toro 1.3 2024/25; o atendent","air":false},{"d":"2026-07-09","a":"Daniela Crevelari","s":64,"c":"Regular","p":["P1","P6","P10"],"v":["V2","V3","V4"],"e":[6,8,13,13,17,7],"h":"Cliente relatou recebimento incompleto de pedido de calços de mola (4 itens pedidos, 1 superior faltante já instalado). ","air":true},{"d":"2026-07-09","a":"Thiago Leite","s":32,"c":"Crítico","p":["P1","P3","P7"],"v":[],"e":[5,8,10,4,3,2],"h":"Cliente solicitou cotação de 3 peças para Chevrolet Onix Plus 2023/2024, fornecendo todos os dados do veículo; o atenden","air":false},{"d":"2026-07-09","a":"","s":15,"c":"Crítico","p":["P1","P3","P7"],"v":[],"e":[4,4,3,2,0,2],"h":"O cliente entrou em contato em um feriado solicitando informações sobre uma Válvula Mprop para Ford Transit. Recebeu ape","air":true},{"d":"2026-07-10","a":"Daniela Crevelari","s":60,"c":"Regular","p":["P3","P7"],"v":["V2","V3"],"e":[7,8,14,12,14,5],"h":"Cliente solicitou cotação de 5 peças do sistema de arrefecimento para um Mercedes-Benz GLA 200; o atendente coletou a pl","air":false},{"d":"2026-07-10","a":"Lucas Lima+twilio","s":29,"c":"Crítico","p":["P1","P3","P5","P7"],"v":[],"e":[3,7,7,6,5,1],"h":"Cliente entrou em contato pedindo cotação de peças para um Mercedes-Benz GLA200 (ano 2019/2020), incluindo bomba d'água,","air":true},{"d":"2026-07-10","a":"Lucas Lima+twilio","s":45,"c":"Abaixo do esperado","p":["P4","P1","P7","P3"],"v":["V2"],"e":[3,7,8,10,15,2],"h":"O cliente Jonas entrou em contato aparentemente para tirar dúvida sobre especificações de uma peça (medidas 23/25) e/ou ","air":true},{"d":"2026-07-10","a":"Lucas Lima+twilio","s":56,"c":"Abaixo do esperado","p":["P1","P7"],"v":["V3","V4"],"e":[5,9,13,14,10,5],"h":"O cliente (mecânico/oficina) precisava receber peças no mesmo dia para finalizar um serviço; o atendente orientou-o a fa","air":true},{"d":"2026-07-10","a":"Giovanna Mathias","s":61,"c":"Regular","p":["P3","P6","P7"],"v":["V2","V4"],"e":[5,8,13,13,17,5],"h":"Cliente reportou que múltiplas peças de um pedido não chegaram (6 IDs, totalizando 8 unidades), sendo os coxins os mais ","air":false},{"d":"2026-07-10","a":"Paula Santos","s":73,"c":"Regular","p":["P1"],"v":["V1","V3"],"e":[8,11,14,15,18,7],"h":"Cliente informou a placa do veículo e solicitou cotação de sensor de temperatura; o atendimento entregou cotação com ite","air":false},{"d":"2026-07-10","a":"Daniela Crevelari","s":71,"c":"Regular","p":["P3","P7"],"v":["V1","V3"],"e":[8,12,15,12,18,6],"h":"Cliente solicitou cotação de 4 bicos injetores Bosch para um VW Gol 2004. O atendimento entregou a cotação em ~6 min, ma","air":false},{"d":"2026-07-10","a":"Giovanna Mathias","s":47,"c":"Abaixo do esperado","p":["P1","P3","P5"],"v":[],"e":[6,10,12,9,5,5],"h":"Cliente solicitou cotação de mangueira de retorno da direção hidráulica (com especificação por foto) para um Corsa 2004/","air":true},{"d":"2026-07-10","a":"Daniela Crevelari","s":55,"c":"Abaixo do esperado","p":[],"v":[],"e":[4,8,10,10,15,8],"h":"O cliente enviou uma mensagem de agradecimento ('Obrigado') sem apresentar nenhuma nova demanda; o atendente respondeu c","air":true},{"d":"2026-07-13","a":"Paula Santos","s":72,"c":"Regular","p":["P6"],"v":["V2","V3","V1"],"e":[7,11,14,14,18,8],"h":"Cliente solicitou cotação de rolamento 6006 para um Fiat Palio Weekend Adventure 2009; o atendente gerou a cotação com t","air":true},{"d":"2026-07-13","a":"Italo Luiz","s":61,"c":"Regular","p":["P1","P6","P7"],"v":["V3","V4"],"e":[7,12,13,13,10,6],"h":"O cliente realizou três cotações distintas em sequência (sapata/tambor para GM Corsa, kit de suspensão/correias para Fia","air":false},{"d":"2026-07-13","a":"Lucas Lima+twilio","s":60,"c":"Regular","p":["P1","P3","P4"],"v":["V3","V4"],"e":[7,11,12,14,8,8],"h":"Cliente relatou ausência de 1 tubo no pedido 967636515; após diagnóstico inicial equivocado (IA abriu cotação indevida) ","air":false},{"d":"2026-07-13","a":"Lucas Lima+twilio","s":41,"c":"Abaixo do esperado","p":["P1","P2","P3","P7"],"v":[],"e":[6,9,11,8,5,2],"h":"O cliente (Branco Auto Center) entrou em contato cobrando a retirada de diversas peças pendentes de devolução há quase u","air":false},{"d":"2026-07-13","a":"Paula Santos","s":59,"c":"Abaixo do esperado","p":["P1"],"v":["V1","V3"],"e":[6,11,12,14,10,6],"h":"O cliente abriu atendimento (via mídia/anexo) para tratar uma devolução de peça retirada na segunda-feira anterior; o at","air":true},{"d":"2026-07-13","a":"Daniela Crevelari","s":60,"c":"Regular","p":["P1","P3","P6"],"v":["V3"],"e":[8,11,14,13,8,6],"h":"O cliente solicitou cotação de junta da base do filtro de óleo para um Citroën C3 2009/2010 1.4. A cotação foi entregue ","air":true},{"d":"2026-07-13","a":"Thiago Leite","s":57,"c":"Abaixo do esperado","p":["P4","P3","P7"],"v":["V3"],"e":[6,10,13,13,10,5],"h":"O cliente buscava um filtro KX24 com entrega no mesmo dia; o atendente humano informou o prazo de corte (16h45) e a IA g","air":true},{"d":"2026-07-13","a":"Giovanna Mathias","s":80,"c":"Bom","p":[],"v":["V1","V2","V3","V4"],"e":[8,13,16,16,20,7],"h":"Cliente solicitou cotação de kit revisão (óleo Motul 5W40, filtro de óleo, ar, combustível e cabine) para BMW X2 placa F","air":true},{"d":"2026-07-13","a":"Giovanna Mathias","s":51,"c":"Abaixo do esperado","p":["P3","P7"],"v":["V3"],"e":[6,10,10,13,8,4],"h":"Cliente reclamou que seu radiador (pedido 959509562) ainda não havia chegado; a atendente informou que a entrega estava ","air":true},{"d":"2026-07-13","a":"Italo Luiz","s":44,"c":"Abaixo do esperado","p":["P1","P2","P3","P7"],"v":[],"e":[5,7,12,10,5,5],"h":"Cliente de uma oficina mecânica (LM Car) entrou em contato solicitando cotação de par de amortecedor dianteiro para um v","air":true},{"d":"2026-07-14","a":"Daniela Crevelari","s":55,"c":"Abaixo do esperado","p":["P1","P3","P6"],"v":["V4"],"e":[6,8,13,10,12,6],"h":"O cliente buscava cotação de um bico injetor específico para seu Hyundai Creta; o atendimento entregou a cotação, mas co","air":true},{"d":"2026-07-14","a":"Paula Santos","s":25,"c":"Crítico","p":["P3","P7"],"v":[],"e":[4,5,5,3,5,3],"h":"O cliente enviou apenas um agradecimento, possivelmente como continuação de atendimento anterior; o atendente respondeu ","air":false},{"d":"2026-07-14","a":"Italo Luiz","s":64,"c":"Regular","p":["P3","P6","P7","P10"],"v":["V2"],"e":[6,10,12,13,18,5],"h":"O cliente solicitou cotação de uma correia 6PK1215; o atendimento forneceu primeiro uma cotação incorreta (veículo errad","air":false},{"d":"2026-07-14","a":"Daniela Crevelari","s":63,"c":"Regular","p":["P6","P1"],"v":["V2","V4"],"e":[8,11,13,10,14,7],"h":"Cliente de oficina solicitou cotação de peças do sistema de escape com catalisador para um Volkswagen T-Cross Sense 1.0 ","air":false},{"d":"2026-07-14","a":"Paula Santos","s":74,"c":"Regular","p":["P11"],"v":["V2","V3"],"e":[7,12,15,15,18,7],"h":"Cliente solicitou cotação de peças de suspensão para uma Meriva 1.4 2010 e de motor de arranque para um Palio 1.0 1996; ","air":false},{"d":"2026-07-14","a":"Daniela Crevelari","s":53,"c":"Abaixo do esperado","p":["P1","P3","P4"],"v":["V3","V4"],"e":[6,9,12,11,8,7],"h":"O cliente entrou para tratar indisponibilidade de óleo (estornado por falta de fornecedor), solicitou cotação de tensor ","air":true},{"d":"2026-07-14","a":"Thiago Leite","s":43,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":[],"e":[6,9,12,8,5,3],"h":"O cliente consultou o status do pedido 59054307 com urgência, preocupado se as peças chegariam no dia. O atendimento for","air":false},{"d":"2026-07-14","a":"Paula Santos","s":49,"c":"Abaixo do esperado","p":["P3","P1","P7","P10"],"v":["V3"],"e":[6,9,10,10,10,4],"h":"Cliente solicitou cotação de motor de esguicho para seu Onix Sedã 2022; a atendente enviou a cotação antes de confirmar ","air":false},{"d":"2026-07-14","a":"Italo Luiz","s":53,"c":"Abaixo do esperado","p":["P3","P7"],"v":["V2"],"e":[7,10,14,10,10,2],"h":"O cliente solicitou cotação de alternador e bateria para um Renault Kardian 2024/25. O atendente entregou a cotação da b","air":false},{"d":"2026-07-14","a":"Daniela Crevelari","s":42,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":[],"e":[6,8,12,9,4,3],"h":"Cliente de oficina cadastrada solicitou cotação de coifas homocinéticas, coifas lado caixa e rolamentos para um Palio. O","air":true},{"d":"2026-07-15","a":"Italo Luiz","s":25,"c":"Crítico","p":["P1","P3","P7","P10"],"v":[],"e":[3,4,5,7,4,2],"h":"O cliente entrou em contato com o intuito de tratar uma devolução já solicitada e saber quando receberia o Pix do estorn","air":false},{"d":"2026-07-15","a":"Italo Luiz","s":48,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":[],"e":[6,12,11,11,5,3],"h":"O cliente solicitou cotação de garfo de embreagem e kit reparo para uma Kombi 1.4 2012. O atendimento gerou a cotação co","air":false},{"d":"2026-07-15","a":"Italo Luiz","s":66,"c":"Regular","p":["P3","P7"],"v":["V1","V3"],"e":[8,12,17,14,10,5],"h":"Cliente solicitou cotação de amortecedor dianteiro para um Honda Civic 2004 — o atendimento identificou o veículo pela p","air":true},{"d":"2026-07-15","a":"Paula Santos","s":68,"c":"Regular","p":["P11"],"v":["V2","V3"],"e":[7,10,13,15,16,7],"h":"Cliente buscou cotação de tubo da bomba d'água para uma Sprinter 415 CDI (placa DZD7390); a atendente Paula processou a ","air":false},{"d":"2026-07-21","a":"Daniela Crevelari","s":65,"c":"Regular","p":["P1","P3","P7"],"v":["V3"],"e":[8,12,14,13,12,6],"h":"Cliente de oficina solicitou cotação de coxim do amortecedor traseiro e kit da haste para um Honda WR-V 2020. A cotação ","air":false},{"d":"2026-07-21","a":"Bruno Ferreira","s":59,"c":"Abaixo do esperado","p":["P4","P3","P7"],"v":["V3"],"e":[7,11,12,15,10,4],"h":"Cliente solicitou cotação de coxim, kit batente amortecedor traseiro e catalisador para um Cobalt 2014 1.8 (placa FRK0J7","air":true},{"d":"2026-07-21","a":"Renata Santana","s":36,"c":"Crítico","p":["P1","P7"],"v":[],"e":[4,9,8,7,5,3],"h":"O cliente enviou um comprovante de pagamento Santander via anexo sem explicar o contexto; o Airton (N1) não conseguiu le","air":true},{"d":"2026-07-21","a":"Daniela Crevelari","s":66,"c":"Regular","p":["P3","P4","P10"],"v":["V2","V3"],"e":[7,10,13,13,16,7],"h":"O cliente solicitou cotações de sensor ABS para um Fiat Punto e retentor de semi-eixo para uma GM Spin; ambas as cotaçõe","air":true},{"d":"2026-07-21","a":"Daniela Crevelari","s":54,"c":"Abaixo do esperado","p":["P3","P6","P7","P10"],"v":["V3"],"e":[6,9,13,11,10,5],"h":"O cliente queria comprar um scanner automotivo com capacidades específicas (carros novos, recuo de pinça EPB, troca de c","air":true},{"d":"2026-07-21","a":"Lucas Lima+twilio","s":72,"c":"Regular","p":["P10"],"v":["V1","V2","V3"],"e":[6,12,14,15,18,7],"h":"O cliente relatou dificuldade ao aplicar um cupom de troca (valor maior que o real da devolução). Lucas diagnosticou o e","air":true},{"d":"2026-07-21","a":"Lucas Lima+twilio","s":66,"c":"Regular","p":["P2"],"v":["V2","V3"],"e":[7,10,14,13,14,8],"h":"Cliente solicitou cotação de mangueira de direção hidráulica para Hyundai Veracruz 2013 3.8 V6; o atendimento coletou pl","air":true},{"d":"2026-07-21","a":"Daniela Crevelari","s":68,"c":"Regular","p":["P3","P10"],"v":["V1","V2"],"e":[7,10,14,14,16,7],"h":"Cliente solicitou cotação de 02 bandejas de suspensão superior para um Porsche Panamera 2018. O atendimento resultou em ","air":true},{"d":"2026-07-21","a":"Paula Santos","s":72,"c":"Regular","p":["P3"],"v":["V2","V3"],"e":[7,12,15,13,18,7],"h":"O cliente solicitou cotação do módulo de acionamento da bomba elétrica para um GM Tracker 2023; a atendente Paula entreg","air":true},{"d":"2026-07-21","a":"Paula Santos","s":74,"c":"Regular","p":["P3","P6"],"v":["V1","V3"],"e":[9,13,17,14,15,6],"h":"Cliente solicitou cotação de 5 peças para um GM Onix 2019; o Airton identificou o veículo, coletou a única informação fa","air":true},{"d":"2026-07-21","a":"Paula Santos","s":56,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":["V3"],"e":[7,10,13,12,8,6],"h":"O cliente solicitou cotações de duas peças (atuador de marcha lenta para Honda Civic e trocador de calor para Honda HR-V","air":true},{"d":"2026-07-21","a":"Thiago Leite","s":63,"c":"Regular","p":["P4","P3","P7"],"v":["V2","V3"],"e":[5,9,12,13,18,6],"h":"O cliente solicitou cotação de cubo traseiro (Honda City FTT2993) e recebeu a cotação; em seguida reportou que um rolame","air":true},{"d":"2026-07-21","a":"Thiago Leite","s":69,"c":"Regular","p":["P3","P10"],"v":["V1","V2","V3"],"e":[8,10,14,14,16,7],"h":"Cliente solicitou cotação de atuador de pedal de embreagem para um Ford Focus 2004 (placa DNY0E98); o atendente gerou ra","air":true},{"d":"2026-07-21","a":"Paula Santos","s":55,"c":"Abaixo do esperado","p":["P1","P7"],"v":["V1"],"e":[6,10,12,12,10,5],"h":"O cliente abriu atendimento pedindo uma imagem de uma peça que chamou de 'coração' e não conseguiu enviar a foto de refe","air":true},{"d":"2026-07-21","a":"Lucas Lima+twilio","s":52,"c":"Abaixo do esperado","p":["P7"],"v":[],"e":[5,8,10,10,12,7],"h":"O cliente enviou um agradecimento (\"Obg\"), sinalizando que sua demanda prévia havia sido atendida. O atendente correspon","air":false},{"d":"2026-07-21","a":"Bruno Ferreira","s":60,"c":"Regular","p":["P1","P3","P7"],"v":["V1","V3"],"e":[8,12,14,13,10,3],"h":"O cliente enviou placa e chassi solicitando uma cotação de motor de partida para um Honda City 2015, e o Airton identifi","air":true},{"d":"2026-07-21","a":"Thiago Leite","s":68,"c":"Regular","p":["P4","P3"],"v":["V2","V3"],"e":[7,11,13,14,17,6],"h":"O cliente enviou fotos/mídia solicitando cotação de bomba d'água, suporte e anel o'ring da válvula termostática para um ","air":false},{"d":"2026-07-21","a":"Paula Santos","s":75,"c":"Bom","p":["P3","P10","P7"],"v":["V2","V3"],"e":[8,11,17,15,18,6],"h":"Cliente solicitou cotação de maçaneta interna dianteira direita para Fiat Uno Mille 1995/96 (placa CCA-6106); a atendent","air":true},{"d":"2026-07-21","a":"Paula Santos","s":73,"c":"Regular","p":["P1","P10"],"v":["V2","V4"],"e":[8,11,16,13,18,7],"h":"Cliente solicitou cotação de 4 bielas de motor para um Nissan Kicks 2023. O atendimento entregou a cotação em ~10 min co","air":true},{"d":"2026-07-21","a":"Thiago Leite","s":41,"c":"Abaixo do esperado","p":["P1","P3","P5","P6","P7"],"v":[],"e":[6,9,10,7,5,4],"h":"O cliente solicitou primeiro uma cotação de radiador para um BMW X3 2014, que não teve ofertas disponíveis; em seguida, ","air":false},{"d":"2026-07-21","a":"Paula Santos","s":65,"c":"Regular","p":["P1","P6"],"v":["V1","V4"],"e":[7,10,13,13,16,6],"h":"O cliente queria visualizar fotos de duas mangueiras Fiat para confirmar se os códigos correspondiam às peças corretas, ","air":true},{"d":"2026-07-21","a":"Italo Luiz","s":39,"c":"Crítico","p":["P1","P3","P7","P10"],"v":[],"e":[7,9,10,6,5,2],"h":"O cliente entrou em contato relatando problema com um hidrovácuo cotado via link da Mecanizou (parafuso localizado em po","air":true},{"d":"2026-07-21","a":"Italo Luiz","s":17,"c":"Crítico","p":["P7"],"v":[],"e":[3,6,8,0,0,0],"h":"O cliente parecia estar em processo de cotação de autopeças e o atendente tentou qualificar qual veículo usar, mas a con","air":false},{"d":"2026-07-21","a":"Lucas Lima+twilio","s":47,"c":"Abaixo do esperado","p":["P1","P3","P5","P7"],"v":["V3"],"e":[6,11,13,10,5,2],"h":"O cliente entrou em contato para saber se todas as peças do pedido #663195611 chegariam no dia; o atendente informou que","air":true},{"d":"2026-07-21","a":"Thiago Leite","s":42,"c":"Abaixo do esperado","p":["P3","P5","P7"],"v":[],"e":[5,7,10,6,10,4],"h":"Cliente de oficina solicitou cotação de eixo traseiro para Toyota Etios Sedan XLS 2015 1.5; o atendente buscou a peça, i","air":true},{"d":"2026-07-22","a":"Thiago Leite","s":56,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":["V3"],"e":[7,10,13,14,8,4],"h":"O cliente solicitou cotação de todas as mangueiras para um Fiat Palio 2011 (placa EYD6F38); o atendimento identificou o ","air":false},{"d":"2026-07-22","a":"Paula Santos","s":63,"c":"Regular","p":["P11","P1","P3"],"v":["V2","V3"],"e":[7,10,13,13,14,6],"h":"Cliente (aparentemente um mecânico ou revendedor) solicitou cotações para múltiplos veículos e peças (Audi Q3 — vela/bob","air":false},{"d":"2026-07-22","a":"Paula Santos","s":42,"c":"Abaixo do esperado","p":["P1","P7","P10"],"v":["V3","V4"],"e":[5,9,8,10,5,5],"h":"O cliente recebeu um produto errado (palheta Valeo no lugar de tubo de arrefecimento Valclei VC602) e solicitou reenvio ","air":true},{"d":"2026-07-22","a":"Italo Luiz","s":43,"c":"Abaixo do esperado","p":["P1","P3","P4","P7"],"v":[],"e":[5,10,10,10,5,3],"h":"Cliente solicitou informação sobre o status do pedido 740626315; após 45 minutos de silêncio e cobrança explícita do cli","air":false},{"d":"2026-07-22","a":"Bruno Ferreira","s":44,"c":"Abaixo do esperado","p":["P1","P3","P4","P7","P10"],"v":[],"e":[6,10,12,8,6,2],"h":"Cliente entrou em contato questionando uma nota fiscal que teria recebido sem ter realizado compra alguma na Mecanizou; ","air":false},{"d":"2026-07-22","a":"Thiago Leite","s":31,"c":"Crítico","p":["P3","P1","P7"],"v":[],"e":[4,8,5,4,5,5],"h":"O cliente solicitou o cadastro de um segundo número de telefone (11995119374) e pediu que o contato fosse feito por esse","air":true},{"d":"2026-07-22","a":"Lucas Lima+twilio","s":56,"c":"Abaixo do esperado","p":["P3","P1","P7"],"v":["V4"],"e":[8,12,13,11,8,4],"h":"Cliente solicitou cotação de múltiplas peças de suspensão para um Ford Fusion 2013 (FKW2C27); o atendimento gerou cotaçõ","air":true},{"d":"2026-07-22","a":"Giovanna Mathias","s":50,"c":"Abaixo do esperado","p":["P1","P2","P3","P7"],"v":["V2"],"e":[5,6,11,11,14,3],"h":"O cliente entrou em contato com dúvida sobre a cotação COT-525586 (ponta de eixo traseiro lado esquerdo de Ford Fiesta).","air":false},{"d":"2026-07-22","a":"Paula Santos","s":72,"c":"Regular","p":["P3","P10"],"v":["V2","V3"],"e":[8,12,15,13,18,6],"h":"Cliente enviou solicitação de cotação de Radiador e Tampa Radiador para um Chrysler Caravan 1999; o atendimento processo","air":false},{"d":"2026-07-22","a":"Bruno Ferreira","s":40,"c":"Abaixo do esperado","p":["P1","P3","P6","P7"],"v":[],"e":[5,7,8,9,5,6],"h":"O cliente solicitou cotação de jogo de parafuso de cabeçote e, posteriormente, esticador de corrente INA para um Kia Bon","air":true},{"d":"2026-07-23","a":"Thiago Leite","s":51,"c":"Abaixo do esperado","p":["P1","P4","P7"],"v":[],"e":[5,10,10,13,8,5],"h":"Cliente solicitou cotação de caixa de direção hidráulica para Ford Ka 2011; a IA iniciou a qualificação, mas o handoff p","air":false},{"d":"2026-07-23","a":"Giovanna Mathias","s":69,"c":"Regular","p":["P3","P10"],"v":["V2","V3","V4"],"e":[7,10,15,14,17,6],"h":"Cliente (aparentemente um mecânico/intermediário) solicitou cotação de bico injetor para um VW Fox 1.0 2008 Flex; o aten","air":true},{"d":"2026-07-23","a":"Daniela Crevelari","s":56,"c":"Abaixo do esperado","p":["P1","P4","P7","P10"],"v":["V3"],"e":[8,12,12,11,8,5],"h":"O cliente queria saber se o Bujão Adaptador Reservatório Cilindro Mestre (pedido #835311488) chegaria no mesmo dia; o Ai","air":true},{"d":"2026-07-23","a":"Paula Santos","s":69,"c":"Regular","p":["P3","P10"],"v":["V2","V3","V4"],"e":[7,10,15,13,18,6],"h":"O cliente solicitou cotação de óleo 0W20 SP em tambor de 200L para uso em múltiplos veículos de oficina (SP). O atendime","air":false},{"d":"2026-07-23","a":"Thiago Leite","s":52,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":["V3"],"e":[7,11,12,11,5,6],"h":"O cliente solicitou cotação de embreagem completa e atuador de embreagem para um HB20 2024; a cotação dos kits foi entre","air":false},{"d":"2026-07-23","a":"Daniela Crevelari","s":56,"c":"Abaixo do esperado","p":["P3","P7"],"v":["V3"],"e":[8,10,15,13,5,5],"h":"O cliente solicitou cotação de 12 itens para um GM Prisma 2018. O atendimento identificou o veículo e cotou 11 dos 12 it","air":false},{"d":"2026-07-23","a":"Bruno Ferreira","s":54,"c":"Abaixo do esperado","p":["P7","P3"],"v":["V2","V4"],"e":[6,10,14,11,10,3],"h":"O cliente entrou em contato para acompanhar a entrega de um kit de correia e tampa, com o carro já no elevador aguardand","air":true},{"d":"2026-07-23","a":"Daniela Crevelari","s":67,"c":"Regular","p":["P1","P3","P6"],"v":["V1","V4"],"e":[7,11,13,13,16,7],"h":"O cliente questionou se seu pedido #823975024 seria entregue no dia; o Airton informou inicialmente que havia atraso e n","air":true},{"d":"2026-07-23","a":"Thiago Leite","s":44,"c":"Abaixo do esperado","p":["P1","P3","P7","P10"],"v":["V4"],"e":[6,8,10,9,8,3],"h":"O cliente queria saber se as peças de uma cotação para Peugeot 2008 chegariam no mesmo dia; o atendimento confirmou entr","air":false},{"d":"2026-07-23","a":"Paula Santos","s":43,"c":"Abaixo do esperado","p":["P1","P3","P6","P7"],"v":[],"e":[5,9,10,7,6,6],"h":"O cliente solicitou cotação de reparo de caixa de direção para um Fiat Uno 2012 (placa EZN4B74) e, em seguida, também pe","air":false},{"d":"2026-07-24","a":"Bruno Ferreira","s":60,"c":"Regular","p":["P1","P3","P7"],"v":["V2","V3"],"e":[7,11,13,11,14,4],"h":"O cliente solicitou cotação de duas demandas distintas: válvula termostática e bieleta traseira para um Dodge Journey (F","air":false},{"d":"2026-07-24","a":"Giovanna Mathias","s":65,"c":"Regular","p":["P2","P1"],"v":["V2","V4"],"e":[6,8,14,14,17,6],"h":"O cliente solicitou cotação de par de amortecedor traseiro para o mesmo veículo de uma cotação anterior (Chrysler 300C).","air":true},{"d":"2026-07-24","a":"Italo Luiz","s":67,"c":"Regular","p":["P7"],"v":["V2","V4"],"e":[7,10,13,14,18,5],"h":"O cliente solicitou cotação de radiador para um Mitsubishi ASX 2.0 2016. O atendente gerou a cotação (NOTUS, R$738,12) s","air":true},{"d":"2026-07-24","a":"Daniela Crevelari","s":55,"c":"Abaixo do esperado","p":["P1","P3","P4","P6"],"v":["V3"],"e":[7,9,11,12,9,7],"h":"O cliente relatou entrega incompleta do pedido #835855777, informando que havia recebido apenas 1 bucha de 4 encomendada","air":true},{"d":"2026-07-24","a":"Italo Luiz","s":54,"c":"Abaixo do esperado","p":["P1","P3","P7"],"v":["V1"],"e":[6,10,12,13,10,3],"h":"O cliente (oficina mecânica) solicitou cotação de 24 litros de óleo 5W30 e, posteriormente, de um carregador de bateria ","air":false},{"d":"2026-07-24","a":"Thiago Leite","s":65,"c":"Regular","p":["P4"],"v":["V2","V4"],"e":[6,8,10,14,20,7],"h":"O atendimento foi proativo: o cliente não apresentou demanda — o contato serviu para acompanhar e confirmar a entrega do","air":true},{"d":"2026-07-24","a":"Lucas Lima+twilio","s":62,"c":"Regular","p":["P3","P7"],"v":["V2"],"e":[7,11,15,11,16,2],"h":"Cliente enviou foto de uma peça solicitando cotação de válvula termostática para um Kia Picanto 2011; o atendimento gero","air":false},{"d":"2026-07-24","a":"Giovanna Mathias","s":67,"c":"Regular","p":["P3","P5","P7"],"v":["V2","V4"],"e":[7,10,14,12,18,6],"h":"O cliente enviou anexos para identificação do veículo (GM Montana 2005) e solicitou cotação de 'Gaiola'; o atendimento e","air":true},{"d":"2026-07-24","a":"Thiago Leite","s":78,"c":"Bom","p":["P1","P7"],"v":["V3","V4"],"e":[9,13,16,16,18,6],"h":"Cliente (oficina/revendedor) solicitou cotação de 11 itens para um Fiat 500 2012; o Airton entregou a cotação completa e","air":true},{"d":"2026-07-24","a":"Bruno Ferreira","s":62,"c":"Regular","p":["P3","P7"],"v":["V1","V3"],"e":[8,11,16,13,10,4],"h":"Cliente solicitou cotação de junta do suporte do filtro de óleo para Peugeot 207 SW 2009 1.4; a IA qualificou o veículo,","air":true},{"d":"2026-07-27","a":"Paula Santos","s":67,"c":"Regular","p":["P3","P10"],"v":["V1","V2","V3"],"e":[5,11,14,14,17,6],"h":"O cliente enviou dois veículos distintos (VW Fox 2014 e Fiat Argo 2022) solicitando cotação de peças de suspensão e manu","air":true},{"d":"2026-07-27","a":"Thiago Leite","s":33,"c":"Crítico","p":["P1","P3","P7"],"v":[],"e":[5,7,8,6,5,2],"h":"O cliente entrou em contato relatando que recebeu uma peça errada (homocinética) e queria tanto devolver a peça incorret","air":true},{"d":"2026-07-27","a":"Lucas Lima+twilio","s":55,"c":"Abaixo do esperado","p":["P1","P3","P6","P7"],"v":["V1","V4"],"e":[6,9,13,13,10,4],"h":"O cliente buscou cotação de um comando de válvula para HB20 1.0 12v e, depois, de uma junta de tampa de válvulas; o aten","air":true},{"d":"2026-07-27","a":"Daniela Crevelari","s":55,"c":"Abaixo do esperado","p":[],"v":[],"e":[5,8,10,10,15,7],"h":"A conversa consistiu inteiramente em uma mensagem automática de aviso de ausência (evento Oficina Brasil Conecta 2026) e","air":true},{"d":"2026-07-27","a":"Thiago Leite","s":55,"c":"Abaixo do esperado","p":["P1","P3"],"v":["V1"],"e":[6,10,14,10,8,7],"h":"","air":false},{"d":"2026-07-27","a":"Giovanna Mathias","s":67,"c":"Regular","p":["P6","P10"],"v":["V2","V3"],"e":[6,10,14,13,17,7],"h":"O cliente enviou a placa do seu Celta 2010 buscando cotação de múltiplas peças (suspensão/transmissão) e, no meio do ate","air":true},{"d":"2026-07-27","a":"Daniela Crevelari","s":48,"c":"Abaixo do esperado","p":["P1","P3","P6","P7"],"v":["V3","V4"],"e":[4,7,8,13,10,6],"h":"O cliente relatou que o item Bomba de Óleo (pedido 167590694) estava marcado como entregue mas não havia sido recebido. ","air":true},{"d":"2026-07-27","a":"Lucas Lima+twilio","s":67,"c":"Regular","p":["P3","P7"],"v":["V2","V3"],"e":[6,10,14,13,20,4],"h":"O cliente solicitou a adição de um par de bandejas de suspensão dianteira à cotação de um VW Fox 1.6 2012; o analista mo","air":true},{"d":"2026-07-27","a":"Paula Santos","s":51,"c":"Abaixo do esperado","p":["P1","P3","P6","P7"],"v":[],"e":[5,9,11,11,10,5],"h":"Cliente solicitou cotação de radiador para GM Prisma 2019 1.4 manual com ar-condicionado; o analista enviou inicialmente","air":true},{"d":"2026-07-27","a":"Giovanna Mathias","s":66,"c":"Regular","p":["P3","P7","P11"],"v":["V2","V3"],"e":[6,11,13,13,17,6],"h":"O cliente solicitou a reativação de uma cotação existente (COT-526604) e, durante o atendimento, expandiu as demandas co","air":true}];
 // RECORDS_PLACEHOLDER_END
 
 const PROB_LABELS = {
@@ -714,11 +757,15 @@ const VIRT_COLOR_MAP = {
 // ── Filter state ───────────────────────────────────────────────
 let filterFrom = '';
 let filterTo   = '';
+let filterAnalyst = '';
+let filterProbHeader = '';
 
 function getFiltered() {
   return RAW.filter(r => {
     if (filterFrom && r.d < filterFrom) return false;
     if (filterTo   && r.d > filterTo)   return false;
+    if (filterAnalyst && r.a !== filterAnalyst) return false;
+    if (filterProbHeader && !r.p.includes(filterProbHeader)) return false;
     return true;
   });
 }
@@ -1378,53 +1425,99 @@ const ANALYSTS = [
 ];
 
 const radarCharts = {};
-function renderAnalystCards() {
+function renderAnalystCards(data) {
+  // Build per-analyst stats from live filtered data
+  const statsMap = {};
+  data.forEach(r => {
+    if (!r.a) return;
+    if (!statsMap[r.a]) statsMap[r.a] = { name: r.a, n: 0, sum: 0, probs: {}, virts: {}, etapaSum: [0,0,0,0,0,0], classif: {} };
+    const s = statsMap[r.a];
+    s.n++; s.sum += r.s;
+    r.p.forEach(p => { s.probs[p] = (s.probs[p]||0)+1; });
+    r.v.forEach(v => { s.virts[v] = (s.virts[v]||0)+1; });
+    r.e.forEach((val,i) => { s.etapaSum[i] += val; });
+    s.classif[r.c] = (s.classif[r.c]||0)+1;
+  });
+
   const wrap = document.getElementById('analystCards');
   wrap.innerHTML = '';
-  ANALYSTS.forEach((a, idx) => {
-    const domId = 'analyst-' + a.name.replace(/\s+/g, '-');
-    const c = Object.entries(a.classif).sort((x,y) => y[1]-x[1])[0]?.[0] || 'Regular';
-    const clr = scoreColor(a.avg);
-    const problemPills = a.problemCodes.map((p, i) =>
-      `<span class="pill" style="background:${PROB_COLOR_MAP[p]}22;border-color:${PROB_COLOR_MAP[p]}55;color:${PROB_COLOR_MAP[p]}">${a.problems[i]}</span>`
+
+  // Destroy existing radar charts
+  Object.keys(radarCharts).forEach(k => { if (radarCharts[k]) { radarCharts[k].destroy(); delete radarCharts[k]; } });
+
+  const statsArr = Object.values(statsMap).sort((a,b) => (b.sum/b.n||0) - (a.sum/a.n||0));
+
+  if (statsArr.length === 0) {
+    wrap.innerHTML = '<div style="color:var(--text-muted);padding:2rem;text-align:center">Nenhum analista na seleção atual.</div>';
+    return;
+  }
+
+  statsArr.forEach((s, idx) => {
+    const avg = s.sum / s.n;
+    const etapaPct = s.etapaSum.map((v, i) => Math.round(v / s.n / ETAPA_MAX[i] * 100));
+    const topProbs = Object.entries(s.probs).sort((a,b) => b[1]-a[1]).slice(0,5);
+    const topVirts = Object.entries(s.virts).sort((a,b) => b[1]-a[1]).slice(0,4);
+
+    // Get static config for nextSteps (match by name)
+    const staticConfig = ANALYSTS.find(a => a.name === s.name);
+    const nextSteps = staticConfig ? staticConfig.nextSteps : [];
+
+    const clr = scoreColor(avg);
+    const topClassif = Object.entries(s.classif).sort((a,b) => b[1]-a[1])[0]?.[0] || 'Regular';
+
+    const problemPills = topProbs.map(([p, cnt]) =>
+      `<span class="pill" style="background:${PROB_COLOR_MAP[p]||'#94a3b8'}22;border-color:${PROB_COLOR_MAP[p]||'#94a3b8'}55;color:${PROB_COLOR_MAP[p]||'#94a3b8'}">${p}(${cnt})</span>`
     ).join('');
-    const virtuePills = a.virtueCodes.map((v, i) =>
-      `<span class="pill" style="background:${VIRT_COLOR_MAP[v]}22;border-color:${VIRT_COLOR_MAP[v]}55;color:${VIRT_COLOR_MAP[v]}">${a.virtues[i]}</span>`
+    const virtuePills = topVirts.map(([v, cnt]) =>
+      `<span class="pill" style="background:${VIRT_COLOR_MAP[v]||'#94a3b8'}22;border-color:${VIRT_COLOR_MAP[v]||'#94a3b8'}55;color:${VIRT_COLOR_MAP[v]||'#94a3b8'}">${v}(${cnt})</span>`
     ).join('');
-    const nextStepsHtml = a.nextSteps.map(s => `<li>${s}</li>`).join('');
-    const classifHtml = Object.entries(a.classif).filter(([,v]) => v > 0).map(([k, v]) =>
+    const nextStepsHtml = nextSteps.length
+      ? nextSteps.map(st => `<li>${st}</li>`).join('')
+      : '<li style="color:var(--text-muted)">—</li>';
+    const classifHtml = Object.entries(s.classif).filter(([,v]) => v > 0).map(([k, v]) =>
       `<span class="pill" style="background:${classifColor(k)}22;color:${classifColor(k)};border-color:${classifColor(k)}44">${k}: ${v}</span>`
     ).join('');
+    const safeId = s.name.replace(/\s+/g, '-');
+    const domId = 'analyst-' + safeId;
+
     wrap.innerHTML += `
-      <div class="analyst-card" id="${domId}">
+      <div class="analyst-card" id="${domId}" data-analyst="${s.name}">
         <div class="analyst-card-header">
           <div>
-            <div class="analyst-name">${a.name}</div>
-            <div class="analyst-meta">n=${a.n} conversas auditadas</div>
+            <div class="analyst-name">${s.name}</div>
+            <div class="analyst-meta">n=${s.n} conversa${s.n!==1?'s':''} no período selecionado</div>
           </div>
-          <div style="text-align:right">
-            <div class="score-badge" style="background:${clr}22;color:${clr};font-size:1.2rem;padding:6px 16px">${a.avg.toFixed(1)}</div>
-            <div style="font-size:11px;color:${classifColor(c)};margin-top:4px">${c}</div>
+          <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+            <div class="score-badge" style="background:${clr}22;color:${clr};font-size:1.2rem;padding:6px 16px">${avg.toFixed(1)}</div>
+            <div style="font-size:11px;color:${classifColor(topClassif)}">${topClassif}</div>
+            <button class="export-btn" onclick="exportAnalystProfile('${s.name}')" title="Exportar perfil deste analista">
+              Exportar Perfil
+            </button>
           </div>
         </div>
         <div class="analyst-radar-wrap">
           <canvas id="radar-${idx}"></canvas>
         </div>
-        <div style="margin-bottom:.5rem;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Classificações</div>
+        <div style="margin:.75rem 0 .3rem;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Classificações</div>
         <div class="pills-row">${classifHtml}</div>
-        <div style="margin-bottom:.5rem;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Problemas</div>
-        <div class="pills-row">${problemPills}</div>
-        <div style="margin-bottom:.5rem;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Virtudes</div>
-        <div class="pills-row">${virtuePills}</div>
+        <div style="margin:.75rem 0 .3rem;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Problemas</div>
+        <div class="pills-row">${problemPills || '<span style="color:var(--text-muted);font-size:12px">Nenhum registrado</span>'}</div>
+        <div style="margin:.75rem 0 .3rem;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Virtudes</div>
+        <div class="pills-row">${virtuePills || '<span style="color:var(--text-muted);font-size:12px">Nenhuma registrada</span>'}</div>
         <div class="next-steps">
           <h4>Próximos Passos</h4>
           <ul>${nextStepsHtml}</ul>
         </div>
       </div>
     `;
+    // store for chart drawing
+    statsArr[idx]._etapaPct = etapaPct;
+    statsArr[idx]._avg = avg;
+    statsArr[idx]._clr = clr;
   });
+
   setTimeout(() => {
-    ANALYSTS.forEach((a, idx) => {
+    statsArr.forEach((s, idx) => {
       const ctx = document.getElementById('radar-' + idx);
       if (!ctx) return;
       if (radarCharts[idx]) radarCharts[idx].destroy();
@@ -1434,12 +1527,12 @@ function renderAnalystCards() {
           labels: ETAPA_SHORT,
           datasets: [
             {
-              label: a.name,
-              data: a.etapas,
-              borderColor: scoreColor(a.avg),
-              backgroundColor: scoreColor(a.avg) + '22',
+              label: s.name,
+              data: s._etapaPct,
+              borderColor: s._clr,
+              backgroundColor: s._clr + '22',
               borderWidth: 2,
-              pointBackgroundColor: scoreColor(a.avg),
+              pointBackgroundColor: s._clr,
               pointRadius: 3,
             },
             {
@@ -1459,7 +1552,7 @@ function renderAnalystCards() {
           scales: {
             r: {
               min: 0, max: 100,
-              ticks: { display: false, stepSize: 25 },
+              ticks: { display: false },
               grid: { color: 'rgba(255,255,255,0.1)' },
               pointLabels: { color: '#94a3b8', font: { size: 11 } },
               angleLines: { color: 'rgba(255,255,255,0.08)' },
@@ -1472,6 +1565,182 @@ function renderAnalystCards() {
       });
     });
   }, 100);
+}
+
+// ── Export analyst profile ─────────────────────────────────────
+function exportAnalystProfile(name) {
+  const data = getFiltered().filter(r => r.a === name);
+  const stats = computeAnalystStats(getFiltered()).find(s => s.name === name);
+  if (!stats) return;
+
+  const staticConfig = ANALYSTS.find(a => a.name === name);
+  const nextSteps = staticConfig ? staticConfig.nextSteps : [];
+  const avg10 = (stats.avg / 10).toFixed(1);
+
+  const topProbs = Object.entries(
+    data.reduce((acc, r) => { r.p.forEach(p => { acc[p]=(acc[p]||0)+1; }); return acc; }, {})
+  ).sort((a,b) => b[1]-a[1]);
+
+  const topVirts = Object.entries(
+    data.reduce((acc, r) => { r.v.forEach(v => { acc[v]=(acc[v]||0)+1; }); return acc; }, {})
+  ).sort((a,b) => b[1]-a[1]);
+
+  const etapaPct = stats.etapaPct;
+  const etapaNames = ['Roteamento (E0)', '1ª Resposta (E1)', 'Diagnóstico (E2)', 'Solução (E3)', 'Follow-up (E4)', 'Encerramento (E5)'];
+  const etapaMax =  [10, 15, 20, 20, 25, 10];
+
+  const filterDesc = [
+    filterFrom || filterTo ? `${filterFrom||'início'} → ${filterTo||'hoje'}` : null,
+    filterAnalyst ? `Analista: ${filterAnalyst}` : null,
+    filterProbHeader ? `Problema: ${filterProbHeader}` : null,
+  ].filter(Boolean).join(' · ') || 'Todo o período';
+
+  const classifCounts = data.reduce((acc, r) => { acc[r.c]=(acc[r.c]||0)+1; return acc; }, {});
+  const classifColors = { 'Excelente':'#06b6d4','Bom':'#22c55e','Regular':'#eab308','Abaixo do esperado':'#f97316','Crítico':'#ef4444' };
+
+  const probRows = topProbs.map(([code, cnt]) =>
+    `<tr><td style="padding:6px 10px;font-weight:700;color:#e2e8f0">${code}</td>
+     <td style="padding:6px 10px;color:#cbd5e1">${PROB_LABELS[code]||code}</td>
+     <td style="padding:6px 10px;text-align:right;font-weight:700;color:#f97316">${cnt}</td>
+     <td style="padding:6px 10px;text-align:right;color:#94a3b8">${Math.round(cnt/data.length*100)}%</td></tr>`
+  ).join('');
+
+  const virtRows = topVirts.map(([code, cnt]) =>
+    `<tr><td style="padding:6px 10px;font-weight:700;color:#e2e8f0">${code}</td>
+     <td style="padding:6px 10px;color:#cbd5e1">${VIRT_LABELS[code]||code}</td>
+     <td style="padding:6px 10px;text-align:right;font-weight:700;color:#22c55e">${cnt}</td></tr>`
+  ).join('');
+
+  const caseRows = data.map(r => {
+    const dateStr = r.d.substring(8,10)+'/'+r.d.substring(5,7)+'/'+r.d.substring(0,4);
+    const scoreClr = r.s >= 75 ? '#22c55e' : r.s >= 60 ? '#eab308' : r.s >= 40 ? '#f97316' : '#ef4444';
+    return `<tr>
+      <td style="padding:6px 10px;color:#94a3b8;white-space:nowrap">${dateStr}</td>
+      <td style="padding:6px 10px;font-weight:700;color:${scoreClr}">${r.s}</td>
+      <td style="padding:6px 10px;color:#94a3b8">${r.c}</td>
+      <td style="padding:6px 10px;color:#e2e8f0;font-size:11px">${r.p.join(', ')||'—'}</td>
+      <td style="padding:6px 10px;color:#e2e8f0;font-size:11px">${r.v.join(', ')||'—'}</td>
+      <td style="padding:6px 10px;color:#94a3b8;font-size:11px;max-width:200px">${r.h||'—'}</td>
+    </tr>`;
+  }).join('');
+
+  const etapaRows = etapaNames.map((nome, i) => {
+    const pct = etapaPct[i];
+    const barClr = pct >= 70 ? '#22c55e' : pct >= 50 ? '#eab308' : '#ef4444';
+    return `<tr>
+      <td style="padding:6px 10px;color:#e2e8f0">${nome}</td>
+      <td style="padding:6px 10px">
+        <div style="background:#1e293b;border-radius:4px;height:8px;width:120px;display:inline-block;vertical-align:middle">
+          <div style="background:${barClr};height:100%;border-radius:4px;width:${pct}%"></div>
+        </div>
+        <span style="margin-left:8px;font-weight:700;color:${barClr}">${pct}%</span>
+      </td>
+      <td style="padding:6px 10px;color:#94a3b8;font-size:12px">Peso: ${etapaMax[i]} pts</td>
+    </tr>`;
+  }).join('');
+
+  const classifHtml = Object.entries(classifCounts).map(([k, v]) =>
+    `<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;margin:2px;
+     background:${classifColors[k]||'#94a3b8'}22;color:${classifColors[k]||'#94a3b8'};
+     border:1px solid ${classifColors[k]||'#94a3b8'}44">${k}: ${v}</span>`
+  ).join('');
+
+  const nextStepsHtml = nextSteps.map(s =>
+    `<li style="margin-bottom:6px;color:#e2e8f0">${s}</li>`
+  ).join('');
+
+  const scoreClr = stats.avg >= 75 ? '#22c55e' : stats.avg >= 60 ? '#eab308' : stats.avg >= 40 ? '#f97316' : '#ef4444';
+  const genTs = document.getElementById('gen-ts')?.textContent || '';
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Perfil — ${name}</title>
+<style>
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .no-print { display: none !important; }
+    @page { margin: 15mm; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f172a; color: #f1f5f9; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.5; padding: 24px; }
+  h1 { font-size: 1.6rem; font-weight: 800; }
+  h2 { font-size: 1rem; font-weight: 700; border-left: 4px solid #3b82f6; padding-left: 10px; margin: 24px 0 12px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 6px 10px; border-bottom: 1px solid #334155; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #64748b; }
+  tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+  .badge { display: inline-block; padding: 3px 12px; border-radius: 20px; font-weight: 700; font-size: 13px; }
+  .card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .print-btn { background: #3b82f6; color: #fff; border: none; border-radius: 6px; padding: 8px 20px; font-size: 14px; font-weight: 600; cursor: pointer; margin-right: 8px; }
+  .print-btn:hover { opacity:.85; }
+  .close-btn { background: transparent; color: #94a3b8; border: 1px solid #334155; border-radius: 6px; padding: 8px 20px; font-size: 14px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="no-print" style="margin-bottom:20px;display:flex;align-items:center;gap:8px">
+  <button class="print-btn" onclick="window.print()">Imprimir / Salvar PDF</button>
+  <button class="close-btn" onclick="window.close()">Fechar</button>
+  <span style="color:#64748b;font-size:12px;margin-left:auto">Gerado em: ${genTs} · Filtro: ${filterDesc}</span>
+</div>
+
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+  <div>
+    <div style="color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Perfil do Analista · Mecanizou</div>
+    <h1>${name}</h1>
+    <div style="color:#64748b;font-size:13px;margin-top:4px">${data.length} conversa${data.length!==1?'s':''} auditada${data.length!==1?'s':''} · ${filterDesc}</div>
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:2.2rem;font-weight:800;color:${scoreClr}">${avg10}<span style="font-size:1rem;color:#64748b">/10</span></div>
+    <div style="font-size:12px;color:${scoreClr};margin-top:2px">Score médio (escala 10)</div>
+  </div>
+</div>
+
+<div class="card">
+  <div style="margin-bottom:8px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#64748b">Classificações</div>
+  <div>${classifHtml}</div>
+</div>
+
+<div class="grid2">
+  <div class="card">
+    <h2>Desempenho por Etapa</h2>
+    <table><thead><tr><th>Etapa</th><th>% do Máximo</th><th></th></tr></thead><tbody>${etapaRows}</tbody></table>
+  </div>
+  <div class="card">
+    <h2>Problemas Identificados</h2>
+    <table><thead><tr><th>Código</th><th>Descrição</th><th style="text-align:right">Ocorr.</th><th style="text-align:right">%</th></tr></thead>
+    <tbody>${probRows||'<tr><td colspan="4" style="padding:10px;color:#64748b">Nenhum</td></tr>'}</tbody></table>
+    <div style="margin-top:16px">
+    <h2 style="margin-top:0">Virtudes Identificadas</h2>
+    <table><thead><tr><th>Código</th><th>Descrição</th><th style="text-align:right">Ocorr.</th></tr></thead>
+    <tbody>${virtRows||'<tr><td colspan="3" style="padding:10px;color:#64748b">Nenhuma</td></tr>'}</tbody></table>
+    </div>
+  </div>
+</div>
+
+${nextSteps.length ? `<div class="card">
+  <h2 style="margin-top:0">Próximos Passos</h2>
+  <ol style="padding-left:1.2rem">${nextStepsHtml}</ol>
+</div>` : ''}
+
+<div class="card">
+  <h2 style="margin-top:0">Conversas Auditadas <span style="font-size:12px;font-weight:400;color:#64748b">(${data.length})</span></h2>
+  <div style="overflow-x:auto">
+  <table>
+    <thead><tr>
+      <th>Data</th><th>Score</th><th>Classificação</th>
+      <th>Problemas</th><th>Virtudes</th><th>Resumo</th>
+    </tr></thead>
+    <tbody>${caseRows||'<tr><td colspan="6" style="padding:10px;color:#64748b">Nenhuma conversa</td></tr>'}</tbody>
+  </table>
+  </div>
+</div>
+
+</body></html>`;
+
+  const w = window.open('', '_blank', 'width=1100,height=800,scrollbars=yes');
+  if (w) { w.document.write(html); w.document.close(); }
 }
 
 // ── Virtudes Legend ────────────────────────────────────────────
@@ -1629,18 +1898,19 @@ function renderConvTable(data) {
 
 // ── applyFilter — master re-render ─────────────────────────────
 function applyFilter() {
-  filterFrom = document.getElementById('filter-from').value;
-  filterTo   = document.getElementById('filter-to').value;
+  filterFrom       = document.getElementById('filter-from').value;
+  filterTo         = document.getElementById('filter-to').value;
+  filterAnalyst    = document.getElementById('filter-analyst').value;
+  filterProbHeader = document.getElementById('filter-prob-header').value;
   const data = getFiltered();
 
   // Update status badge
   const status = document.getElementById('filter-status');
-  if (filterFrom || filterTo) {
-    const range = [filterFrom, filterTo].filter(Boolean).join(' → ');
-    status.textContent = data.length + ' conversas · ' + range;
-  } else {
-    status.textContent = '';
-  }
+  const parts = [];
+  if (filterFrom || filterTo) parts.push([filterFrom, filterTo].filter(Boolean).join(' → '));
+  if (filterAnalyst) parts.push(filterAnalyst);
+  if (filterProbHeader) parts.push(filterProbHeader);
+  status.textContent = parts.length ? data.length + ' conversas · ' + parts.join(' · ') : '';
 
   // Recompute aggregates
   const kpis    = computeKPIs(data);
@@ -1678,6 +1948,9 @@ function applyFilter() {
   // Update Airton section
   updateAirtonSection(data);
 
+  // Update analyst profile cards (dynamic)
+  renderAnalystCards(data);
+
   // Update conversation table
   baseFilteredData = data;
   convFilteredData = [...data];
@@ -1701,9 +1974,19 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('filter-clear').addEventListener('click', () => {
     document.getElementById('filter-from').value = '';
     document.getElementById('filter-to').value = '';
-    filterFrom = '';
-    filterTo = '';
+    document.getElementById('filter-analyst').value = '';
+    document.getElementById('filter-prob-header').value = '';
+    filterFrom = ''; filterTo = ''; filterAnalyst = ''; filterProbHeader = '';
     applyFilter();
+  });
+
+  // Populate analyst dropdown from RAW data
+  const analystSelect = document.getElementById('filter-analyst');
+  const names = [...new Set(RAW.map(r => r.a).filter(Boolean))].sort();
+  names.forEach(n => {
+    const opt = document.createElement('option');
+    opt.value = n; opt.textContent = n;
+    analystSelect.appendChild(opt);
   });
 
   // Update meta from real data
@@ -1715,8 +1998,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('meta-count').textContent = RAW.length + ' conversas auditadas';
   }
 
-  // Static sections
-  renderAnalystCards();
+  // Static sections (analyst cards now rendered dynamically via applyFilter)
   renderAirtonPriorities();
   renderRecomendacoes();
 
