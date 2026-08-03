@@ -2,27 +2,28 @@
 """
 Gerador do Relatório HTML de Auditoria de Atendimento — Mecanizou
 
-Lê todos os registros da planilha Google (aba base_de_registros), injeta o JSON
-compacto no template HTML (substituindo os marcadores RECORDS_PLACEHOLDER_START /
-RECORDS_PLACEHOLDER_END) e salva o arquivo gerado.
+Fontes de dados (dual-source):
+  - Google Sheets (planilha histórica) → registros até 31/07/2026  [src="sheet"]
+  - Redshift via Metabase API          → registros a partir de 01/08/2026 [src="redshift"]
 
-Opcionalmente envia o HTML via Slack (--post-slack) como mensagem de arquivo para
-o canal configurado ou para um usuário específico (--recipient).
+O HTML resultante é o mesmo arquivo relatorio_auditoria_mecanizou.html.
+A linha tracejada nos gráficos marca a transição (01/08) de amostragem para 100% dos atendimentos.
 
 Uso local:
     python3 scripts/generate_audit_report.py
     python3 scripts/generate_audit_report.py --output /tmp/relatorio.html
     python3 scripts/generate_audit_report.py --post-slack
-    python3 scripts/generate_audit_report.py --dry-run   # imprime stats, não salva
-
-No GitHub Actions este script roda logo após audit_agent.py.
+    python3 scripts/generate_audit_report.py --dry-run
 
 Variáveis lidas do .env.local:
-    GOOGLE_SHEET_ID    — id da planilha de destino
-    GOOGLE_SA_FILE     — (opcional) caminho do JSON da conta de serviço
-    AUDIT_SHEET_TAB    — (opcional) aba. Padrão: base_de_registros
-    SLACK_BOT_TOKEN    — token do bot (necessário para --post-slack)
-    SLACK_REPORT_CHANNEL  — canal/DM de destino do relatório (opcional; padrão = TWILIO_SLACK_CHANNEL_ID)
+    GOOGLE_SHEET_ID       — id da planilha histórica (Sheets)
+    GOOGLE_SA_FILE        — (opcional) caminho do JSON da conta de serviço Google
+    AUDIT_SHEET_TAB       — (opcional) aba. Padrão: base_de_registros
+    METABASE_URL          — URL base do Metabase (ex: https://metabase.mecanizou.com)
+    METABASE_API_KEY      — chave de API do Metabase
+    METABASE_REDSHIFT_DB  — (opcional) ID do banco Redshift no Metabase. Padrão: 8
+    SLACK_BOT_TOKEN       — token do bot (necessário para --post-slack)
+    SLACK_REPORT_CHANNEL  — canal/DM de destino do relatório
     TWILIO_SLACK_CHANNEL_ID — canal fallback para envio
 """
 
@@ -42,13 +43,30 @@ from dotenv import dotenv_values
 # Config
 # ---------------------------------------------------------------------------
 
-BASE_DIR     = Path(__file__).resolve().parent.parent
-ENV_PATH     = BASE_DIR / ".env.local"
+BASE_DIR      = Path(__file__).resolve().parent.parent
+ENV_PATH      = BASE_DIR / ".env.local"
 HTML_TEMPLATE = BASE_DIR / "relatorio_auditoria_mecanizou.html"
 DEFAULT_OUTPUT = BASE_DIR / "relatorio_auditoria_mecanizou.html"
-DEFAULT_TAB  = "base_de_registros"
+DEFAULT_TAB   = "base_de_registros"
 
 BRT = timezone(timedelta(hours=-3))
+
+# Data de transição: Sheets até esta data (exclusive), Redshift a partir dela
+TRANSITION_DATE = "2026-08-01"
+
+# ID do banco Redshift no Metabase (fallback se METABASE_REDSHIFT_DB não estiver no env)
+DEFAULT_REDSHIFT_DB = 8
+
+ETAPA_CODES    = ["E0", "E1", "E2", "E3", "E4", "E5"]
+ETAPA_MAX_LIST = [10, 15, 20, 20, 25, 10]
+ETAPA_NAMES    = [
+    "Recebimento/Roteamento",
+    "Primeira Resposta",
+    "Diagnóstico/Qualificação",
+    "Proposta de Solução",
+    "Follow-up Proativo",
+    "Encerramento",
+]
 
 PROB_LABELS = {
     "P1": "Ausência/atraso de follow-up proativo",
@@ -64,6 +82,10 @@ PROB_LABELS = {
     "P11": "Cotação/pedido duplicado",
 }
 
+# Analistas excluídos de qualquer fonte
+EXCLUDED_EMAILS = {"renata.santana@mecanizou.com", "renata.santana@mecanizou.com.br"}
+EXCLUDED_NAMES  = {"engineers"}
+
 
 # ---------------------------------------------------------------------------
 # Ambiente
@@ -74,7 +96,8 @@ def load_env() -> dict:
     if ENV_PATH.exists():
         env = dict(dotenv_values(ENV_PATH))
     for k in ("GOOGLE_SHEET_ID", "GOOGLE_SA_FILE", "AUDIT_SHEET_TAB",
-              "SLACK_BOT_TOKEN", "SLACK_REPORT_CHANNEL", "TWILIO_SLACK_CHANNEL_ID"):
+              "SLACK_BOT_TOKEN", "SLACK_REPORT_CHANNEL", "TWILIO_SLACK_CHANNEL_ID",
+              "METABASE_URL", "METABASE_API_KEY", "METABASE_REDSHIFT_DB"):
         if os.environ.get(k):
             env[k] = os.environ[k]
     return env
@@ -112,11 +135,111 @@ def google_token(sa_file: Path) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Leitura da planilha
+# Helpers de data e nomes
+# ---------------------------------------------------------------------------
+
+def to_iso(s: str) -> str:
+    """Normaliza para YYYY-MM-DD qualquer formato de data."""
+    if not s:
+        return ""
+    if "/" in s:
+        parts = s.split("/")
+        if len(parts) == 3:
+            return f"{parts[2]}-{parts[1].zfill(2)}-{parts[0].zfill(2)}"
+    if "T" in s and len(s) >= 10:
+        return s[:10]
+    if len(s) == 10 and s[4] == "-":
+        return s
+    return s
+
+
+def is_valid_iso(d: str) -> bool:
+    return bool(re.match(r"^\d{4}-\d{2}-\d{2}$", d))
+
+
+def decode_name(slug: str) -> str:
+    """Converte italo_2Eluiz → Italo Luiz"""
+    s = slug.replace("_2E", ".").replace("_2B", "+")
+    parts = s.split(".")
+    return " ".join(p.capitalize() for p in parts)
+
+
+def normalize_analyst(raw: str) -> str:
+    """Normaliza nome/email do analista para exibição."""
+    if not raw:
+        return ""
+    if "airton" in raw.lower():
+        return "Airton (IA)"
+    # Se parece email (tem @), extrai parte antes do @ e formata
+    if "@" in raw:
+        local = raw.split("@")[0]
+        # remove sufixos numéricos do Twilio
+        local = re.sub(r"\d+$", "", local)
+        parts = re.split(r"[._\-]", local)
+        return " ".join(p.capitalize() for p in parts if p)
+    return decode_name(raw)
+
+
+def is_excluded(raw: str) -> bool:
+    """True se o analista deve ser excluído do relatório."""
+    low = raw.lower().strip()
+    if low in EXCLUDED_NAMES:
+        return True
+    if low in {e.lower() for e in EXCLUDED_EMAILS}:
+        return True
+    if "renata.santana" in low:
+        return True
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Gap computation
+# ---------------------------------------------------------------------------
+
+def compute_gap_codes(etapas: list) -> list:
+    """Gap no formato histórico: ['E1:−5 (Primeira Resposta)', ...]"""
+    gaps = []
+    for i, (code, mx, nome) in enumerate(zip(ETAPA_CODES, ETAPA_MAX_LIST, ETAPA_NAMES)):
+        nota = etapas[i] if i < len(etapas) else 0
+        diff = mx - nota
+        if diff > 0:
+            gaps.append(f"{code}:−{diff} ({nome})")
+    return gaps
+
+
+def compute_gap_descriptive(etapas_notas: list, etapas_detalhe_json: str) -> list:
+    """Gap descritivo (Redshift): ['Primeira Resposta: Analista não se apresentou...', ...]
+
+    Usa a justificativa do modelo para cada etapa abaixo do máximo.
+    """
+    try:
+        detalhe = json.loads(etapas_detalhe_json) if etapas_detalhe_json else {}
+    except (json.JSONDecodeError, TypeError):
+        detalhe = {}
+
+    gaps = []
+    for i, (code, mx, nome) in enumerate(zip(ETAPA_CODES, ETAPA_MAX_LIST, ETAPA_NAMES)):
+        nota = etapas_notas[i] if i < len(etapas_notas) else 0
+        diff = mx - nota
+        if diff <= 0:
+            continue
+        # Tenta justificativa do modelo; fallback para formato código
+        just = ""
+        etapa_data = detalhe.get(code) or detalhe.get(code.lower()) or {}
+        if isinstance(etapa_data, dict):
+            just = (etapa_data.get("justificativa") or etapa_data.get("just") or "").strip()
+        if just:
+            gaps.append(f"{nome}: {just}")
+        else:
+            gaps.append(f"{nome} (−{diff} pts)")
+    return gaps
+
+
+# ---------------------------------------------------------------------------
+# Fonte 1: Google Sheets (histórico até 31/07/2026)
 # ---------------------------------------------------------------------------
 
 def read_sheet(sheet_id: str, tab: str, token: str) -> list:
-    """Lê todos os dados da aba e devolve lista de dicts com cabeçalho como chave."""
     rng = urllib.parse.quote(f"{tab}!A1:Z2000", safe="")
     url = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{rng}"
     resp = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=30)
@@ -133,27 +256,6 @@ def read_sheet(sheet_id: str, tab: str, token: str) -> list:
     return records
 
 
-# ---------------------------------------------------------------------------
-# Construção dos registros compactos para o HTML
-# ---------------------------------------------------------------------------
-
-def decode_name(slug: str) -> str:
-    """Converte italo_2Eluiz → Italo Luiz"""
-    s = slug.replace("_2E", ".").replace("_2B", "+")
-    parts = s.split(".")
-    return " ".join(p.capitalize() for p in parts)
-
-
-def to_iso(data_dia: str) -> str:
-    """02/07/2026 → 2026-07-02"""
-    if not data_dia or "/" not in data_dia:
-        return data_dia
-    parts = data_dia.split("/")
-    if len(parts) == 3:
-        return f"{parts[2]}-{parts[1].zfill(2)}-{parts[0].zfill(2)}"
-    return data_dia
-
-
 AIRTON_KEYWORDS = {"airton", "(ia)", "n1"}
 
 def is_airton_involved(record: dict) -> bool:
@@ -165,14 +267,16 @@ def is_airton_involved(record: dict) -> bool:
     return any(kw in combined for kw in AIRTON_KEYWORDS)
 
 
-def build_raw_records(sheet_records: list) -> list:
-    """Converte registros da planilha no formato compacto para o HTML."""
+def build_sheet_records(sheet_records: list) -> list:
+    """Converte registros da planilha no formato compacto para o HTML.
+    Inclui apenas registros com data < TRANSITION_DATE (histórico até 31/07).
+    """
     out = []
-    EXCLUDED = {"engineers"}
     for r in sheet_records:
         resp = r.get("responsavel_atendimento", "").strip()
-        if resp in EXCLUDED:
+        if is_excluded(resp):
             continue
+
         score_raw = r.get("score", "").strip()
         try:
             score = int(float(score_raw))
@@ -188,18 +292,159 @@ def build_raw_records(sheet_records: list) -> list:
 
         probs = [p.strip() for p in r.get("problemas_padronizados", "").split(",") if p.strip()]
         virts = [v.strip() for v in r.get("virtudes_padronizadas", "").split(",") if v.strip()]
-        hist  = (r.get("historico_task", "") or "").strip()[:120]
+        hist  = (r.get("historico_task", "") or "").strip()
+
+        horario = r.get("horario_conversa", "")
+        data_conversa = to_iso(r.get("data_dia", "") or horario or r.get("data", ""))
+
+        if not is_valid_iso(data_conversa):
+            continue
+        # Só histórico (antes da transição para Redshift)
+        if data_conversa >= TRANSITION_DATE:
+            continue
+
+        nome_analista = normalize_analyst(resp)
 
         out.append({
-            "d":   to_iso(r.get("data_dia", "")),
-            "a":   decode_name(resp) if resp else "",
+            "d":   data_conversa,
+            "a":   nome_analista,
             "s":   score,
             "c":   r.get("classificacao", ""),
             "p":   probs,
             "v":   virts,
             "e":   etapas,
             "h":   hist,
+            "g":   compute_gap_codes(etapas),   # formato legado: código + delta
             "air": is_airton_involved(r),
+            "src": "sheet",
+        })
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Fonte 2: Redshift via Metabase (a partir de 01/08/2026)
+# ---------------------------------------------------------------------------
+
+REDSHIFT_SQL = """
+SELECT
+    fa.task_sid,
+    fa.conversation_sid,
+    DATE(fa.completed_at)::varchar          AS data_conversa,
+    fa.completed_at::varchar                AS horario_conversa,
+    fa.channel_type                         AS canal,
+    fa.responsavel_atendimento,
+    fa.audit_score::integer                 AS score,
+    fa.audit_classification                 AS classificacao,
+    fa.nota_e0::integer                     AS nota_e0,
+    fa.nota_e1::integer                     AS nota_e1,
+    fa.nota_e2::integer                     AS nota_e2,
+    fa.nota_e3::integer                     AS nota_e3,
+    fa.nota_e4::integer                     AS nota_e4,
+    fa.nota_e5::integer                     AS nota_e5,
+    fa.num_mensagens::integer               AS num_mensagens,
+    ca.historico_task::varchar              AS historico_task,
+    ca.problemas::varchar                   AS problemas_json,
+    ca.virtudes::varchar                    AS virtudes_json,
+    ca.etapas_detalhe::varchar              AS etapas_detalhe
+FROM public_facts.ft_conversation_audit fa
+LEFT JOIN twilio.conversation_analysis ca USING (task_sid)
+WHERE fa.completed_at >= '{from_date}'
+  AND fa.responsavel_atendimento NOT ILIKE '%renata.santana%'
+ORDER BY fa.completed_at ASC
+"""
+
+
+def read_redshift_via_metabase(env: dict, from_date: str = TRANSITION_DATE) -> list:
+    """Lê auditorias do Redshift via Metabase /api/dataset."""
+    url = env.get("METABASE_URL", "").rstrip("/")
+    key = env.get("METABASE_API_KEY", "")
+    db  = int(env.get("METABASE_REDSHIFT_DB", DEFAULT_REDSHIFT_DB))
+
+    if not url or not key:
+        print("[aviso] METABASE_URL ou METABASE_API_KEY ausentes — ignorando Redshift.",
+              file=sys.stderr)
+        return []
+
+    sql = REDSHIFT_SQL.format(from_date=from_date)
+    resp = requests.post(
+        f"{url}/api/dataset",
+        headers={"x-api-key": key, "Content-Type": "application/json"},
+        json={"database": db, "type": "native", "native": {"query": sql}},
+        timeout=180,
+    )
+    if resp.status_code != 200:
+        print(f"[ERRO] Metabase/Redshift {resp.status_code}: {resp.text[:400]}", file=sys.stderr)
+        return []
+
+    payload = resp.json()
+    if payload.get("error"):
+        print(f"[ERRO] Metabase query error: {payload['error']}", file=sys.stderr)
+        return []
+
+    data = payload.get("data", {})
+    cols = [c["name"] for c in data.get("cols", [])]
+    rows = data.get("rows", [])
+    print(f"[info] Redshift: {len(rows)} registros recebidos.", file=sys.stderr)
+    return [dict(zip(cols, row)) for row in rows]
+
+
+def build_redshift_records(raw_rows: list) -> list:
+    """Converte linhas brutas do Redshift no formato compacto para o HTML."""
+    out = []
+    for r in raw_rows:
+        resp = (r.get("responsavel_atendimento") or "").strip()
+        if is_excluded(resp):
+            continue
+
+        data_conversa = to_iso(r.get("data_conversa") or "")
+        if not is_valid_iso(data_conversa):
+            continue
+        # Só registros a partir da transição
+        if data_conversa < TRANSITION_DATE:
+            continue
+
+        try:
+            score = int(r.get("score") or 0)
+        except (ValueError, TypeError):
+            score = 0
+
+        etapas = []
+        for e in ["nota_e0", "nota_e1", "nota_e2", "nota_e3", "nota_e4", "nota_e5"]:
+            try:
+                etapas.append(int(r.get(e) or 0))
+            except (ValueError, TypeError):
+                etapas.append(0)
+
+        # Problemas e virtudes vêm como JSON array string: '["P1","P4"]'
+        def parse_json_array(s) -> list:
+            if not s:
+                return []
+            try:
+                val = json.loads(s)
+                return [str(x) for x in val] if isinstance(val, list) else []
+            except (json.JSONDecodeError, TypeError):
+                # fallback: separado por vírgula
+                return [x.strip() for x in str(s).split(",") if x.strip()]
+
+        probs = parse_json_array(r.get("problemas_json"))
+        virts = parse_json_array(r.get("virtudes_json"))
+        hist  = (r.get("historico_task") or "").strip()
+        nome_analista = normalize_analyst(resp)
+
+        gap = compute_gap_descriptive(etapas, r.get("etapas_detalhe") or "")
+
+        out.append({
+            "d":   data_conversa,
+            "a":   nome_analista,
+            "s":   score,
+            "c":   r.get("classificacao") or "",
+            "p":   probs,
+            "v":   virts,
+            "e":   etapas,
+            "h":   hist,
+            "g":   gap,    # formato descritivo: "Etapa: justificativa do modelo"
+            "air": "airton" in nome_analista.lower(),
+            "src": "redshift",
         })
     return out
 
@@ -208,45 +453,48 @@ def build_raw_records(sheet_records: list) -> list:
 # Injeção no HTML
 # ---------------------------------------------------------------------------
 
-PLACEHOLDER_RE = re.compile(
+PLACEHOLDER_RE  = re.compile(
     r"// RECORDS_PLACEHOLDER_START.*?// RECORDS_PLACEHOLDER_END",
     re.DOTALL,
 )
-GEN_TS_RE = re.compile(r'(<span id="gen-ts">)[^<]*(</span>)')
+GEN_TS_RE       = re.compile(r'(<span id="gen-ts">)[^<]*(</span>)')
+META_UPDATED_RE = re.compile(r'(<span id="meta-updated">)[^<]*(</span>)')
+FOOTER_CONV_RE  = re.compile(r'(<span id="footer-conv-count">)[^<]*(</span>)')
+FOOTER_GEN_RE   = re.compile(r'(<span id="footer-gen-ts">)[^<]*(</span>)')
 
 
 def inject_into_html(template_path: Path, records: list, ts: str) -> str:
-    """Substitui o bloco de dados e o timestamp no HTML template."""
+    """Substitui o bloco de dados e os timestamps no HTML template."""
     html = template_path.read_text(encoding="utf-8")
 
-    # Monta o bloco de substituição
     compact_json = json.dumps(records, ensure_ascii=False, separators=(",", ":"))
     new_block = (
         "// RECORDS_PLACEHOLDER_START\n"
         f"const RAW = {compact_json};\n"
         "// RECORDS_PLACEHOLDER_END"
     )
-
     html, count = PLACEHOLDER_RE.subn(new_block, html)
     if count == 0:
-        print("[aviso] Marcadores RECORDS_PLACEHOLDER_* não encontrados no template. "
-              "O HTML pode estar desatualizado.", file=sys.stderr)
+        print("[aviso] Marcadores RECORDS_PLACEHOLDER_* não encontrados no template.",
+              file=sys.stderr)
 
-    # Atualiza o timestamp
+    data_br = datetime.now(BRT).strftime("%d/%m/%Y")
     html = GEN_TS_RE.sub(rf'\g<1>{ts}\g<2>', html)
+    html = META_UPDATED_RE.sub(rf'\g<1>Atualizado em {data_br}\g<2>', html)
+    html = FOOTER_CONV_RE.sub(rf'\g<1>{len(records)} conversas\g<2>', html)
+    html = FOOTER_GEN_RE.sub(rf'\g<1>{data_br}\g<2>', html)
+
     return html
 
 
 # ---------------------------------------------------------------------------
-# Slack — envio do arquivo HTML
+# Slack
 # ---------------------------------------------------------------------------
 
 def slack_upload_html(token: str, channel: str, html_path: Path, ts: str):
-    """Envia o HTML de relatório para um canal/DM do Slack (3-step upload)."""
-    content = html_path.read_bytes()
+    content  = html_path.read_bytes()
     filename = f"relatorio_auditoria_{ts.replace('/', '-').replace(' ', '_').replace(':', '')}.html"
 
-    # Step 1: getUploadURLExternal
     r1 = requests.get(
         "https://slack.com/api/files.getUploadURLExternal",
         headers={"Authorization": f"Bearer {token}"},
@@ -258,31 +506,28 @@ def slack_upload_html(token: str, channel: str, html_path: Path, ts: str):
         print(f"[ERRO] Slack getUploadURLExternal: {r1j}", file=sys.stderr)
         return
 
-    upload_url = r1j["upload_url"]
-    file_id    = r1j["file_id"]
-
-    # Step 2: POST bytes
-    r2 = requests.post(upload_url, data=content,
+    r2 = requests.post(r1j["upload_url"], data=content,
                        headers={"Content-Type": "text/html"}, timeout=60)
     if r2.status_code not in (200, 201):
         print(f"[ERRO] Slack upload bytes {r2.status_code}: {r2.text[:200]}", file=sys.stderr)
         return
 
-    # Step 3: completeUploadExternal
     r3 = requests.post(
         "https://slack.com/api/files.completeUploadExternal",
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         json={
-            "files": [{"id": file_id, "title": f"Relatório de Auditoria — {ts}"}],
+            "files": [{"id": r1j["file_id"], "title": f"Relatório de Auditoria — {ts}"}],
             "channel_id": channel,
-            "initial_comment": f"📊 *Relatório de Auditoria de Atendimento* atualizado em {ts}\n"
-                               "Abra no navegador para interatividade completa (filtro de data, gráficos).",
+            "initial_comment": (
+                f"📊 *Relatório de Auditoria de Atendimento* atualizado em {ts}\n"
+                "Abra no navegador para interatividade completa (filtros, gráficos, exportação)."
+            ),
         },
         timeout=30,
     )
     r3j = r3.json()
     if r3j.get("ok"):
-        print(f"[ok] Relatório HTML enviado ao Slack (file_id={file_id}).")
+        print(f"[ok] Relatório HTML enviado ao Slack (file_id={r1j['file_id']}).")
     else:
         print(f"[ERRO] Slack completeUploadExternal: {r3j}", file=sys.stderr)
 
@@ -293,60 +538,83 @@ def slack_upload_html(token: str, channel: str, html_path: Path, ts: str):
 
 def main():
     parser = argparse.ArgumentParser(description="Gerador do Relatório HTML de Auditoria")
-    parser.add_argument("--output", type=str, default=None,
-                        help="Caminho do HTML de saída (padrão: relatorio_auditoria_mecanizou.html na raiz)")
-    parser.add_argument("--tab", type=str, default=None,
-                        help="Aba da planilha (padrão: env AUDIT_SHEET_TAB ou base_de_registros)")
-    parser.add_argument("--post-slack", action="store_true",
-                        help="Envia o HTML gerado ao Slack")
-    parser.add_argument("--recipient", type=str, default=None,
-                        help="Canal ou User ID do Slack de destino (sobrepõe SLACK_REPORT_CHANNEL)")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Lê a planilha e imprime stats, mas NÃO salva nem envia")
+    parser.add_argument("--output", type=str, default=None)
+    parser.add_argument("--tab", type=str, default=None)
+    parser.add_argument("--post-slack", action="store_true")
+    parser.add_argument("--recipient", type=str, default=None)
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--no-redshift", action="store_true",
+                        help="Pula a leitura do Redshift (usa só Sheets)")
+    parser.add_argument("--no-sheets", action="store_true",
+                        help="Pula a leitura do Sheets (usa só Redshift)")
     args = parser.parse_args()
 
-    env  = load_env()
-    tab  = args.tab or env.get("AUDIT_SHEET_TAB") or DEFAULT_TAB
-    out  = Path(args.output) if args.output else DEFAULT_OUTPUT
+    env = load_env()
+    tab = args.tab or env.get("AUDIT_SHEET_TAB") or DEFAULT_TAB
+    out = Path(args.output) if args.output else DEFAULT_OUTPUT
 
-    require(env, ["GOOGLE_SHEET_ID"], "ler a planilha Google")
-    sheet_id = env["GOOGLE_SHEET_ID"].strip()
-    # aceita URL inteira ou ID puro
-    m = re.search(r"/spreadsheets/d/([a-zA-Z0-9_-]+)", sheet_id)
-    if m:
-        sheet_id = m.group(1)
+    all_records: list = []
 
-    sa_file = find_sa_file(env)
-    print(f"[info] Autenticando com {sa_file.name}…")
-    token   = google_token(sa_file)
+    # ── Fonte 1: Google Sheets (histórico ≤ 31/07) ──────────────────────────
+    if not args.no_sheets and env.get("GOOGLE_SHEET_ID"):
+        sheet_id = env["GOOGLE_SHEET_ID"].strip()
+        m = re.search(r"/spreadsheets/d/([a-zA-Z0-9_-]+)", sheet_id)
+        if m:
+            sheet_id = m.group(1)
+        try:
+            sa_file = find_sa_file(env)
+            print(f"[info] Google Sheets: autenticando com {sa_file.name}…")
+            token = google_token(sa_file)
+            print(f"[info] Google Sheets: lendo aba '{tab}'…")
+            sheet_raw = read_sheet(sheet_id, tab, token)
+            sheet_records = build_sheet_records(sheet_raw)
+            print(f"[info] Google Sheets: {len(sheet_records)} registros (histórico até 31/07).")
+            all_records.extend(sheet_records)
+        except Exception as e:
+            print(f"[aviso] Falha ao ler Sheets: {e}", file=sys.stderr)
+    else:
+        if not env.get("GOOGLE_SHEET_ID"):
+            print("[info] GOOGLE_SHEET_ID ausente — ignorando Sheets.", file=sys.stderr)
 
-    print(f"[info] Lendo planilha {sheet_id} · aba '{tab}'…")
-    sheet_records = read_sheet(sheet_id, tab, token)
-    if not sheet_records:
-        print("[ERRO] Planilha vazia ou aba não encontrada.", file=sys.stderr)
+    # ── Fonte 2: Redshift via Metabase (≥ 01/08) ────────────────────────────
+    if not args.no_redshift:
+        print(f"[info] Redshift: consultando via Metabase (a partir de {TRANSITION_DATE})…")
+        try:
+            redshift_raw = read_redshift_via_metabase(env)
+            redshift_records = build_redshift_records(redshift_raw)
+            print(f"[info] Redshift: {len(redshift_records)} registros.")
+            all_records.extend(redshift_records)
+        except Exception as e:
+            print(f"[aviso] Falha ao ler Redshift: {e}", file=sys.stderr)
+
+    if not all_records:
+        print("[ERRO] Nenhum registro carregado de nenhuma fonte.", file=sys.stderr)
         sys.exit(1)
 
-    raw = build_raw_records(sheet_records)
-    ts  = datetime.now(BRT).strftime("%d/%m/%Y %H:%M")
-
-    print(f"[info] {len(raw)} registros prontos para injeção.")
+    # Ordena por data
+    all_records.sort(key=lambda r: r["d"])
+    ts = datetime.now(BRT).strftime("%d/%m/%Y %H:%M")
+    print(f"[info] Total: {len(all_records)} registros prontos para injeção.")
 
     if args.dry_run:
-        scores = [r["s"] for r in raw if r["s"] > 0]
-        print(f"  Período: {min(r['d'] for r in raw)} → {max(r['d'] for r in raw)}")
-        print(f"  Score: min={min(scores)}, max={max(scores)}, avg={sum(scores)/len(scores):.1f}")
-        analistas = {r["a"] for r in raw}
-        print(f"  Analistas: {sorted(analistas)}")
+        scores = [r["s"] for r in all_records if r["s"] > 0]
+        sheet_n = sum(1 for r in all_records if r.get("src") == "sheet")
+        rs_n    = sum(1 for r in all_records if r.get("src") == "redshift")
+        print(f"  Período: {all_records[0]['d']} → {all_records[-1]['d']}")
+        print(f"  Sheets: {sheet_n} | Redshift: {rs_n}")
+        if scores:
+            print(f"  Score: min={min(scores)}, max={max(scores)}, avg={sum(scores)/len(scores):.1f}")
+        analistas = sorted({r["a"] for r in all_records})
+        print(f"  Analistas: {analistas}")
         print("[dry-run] Nada salvo.")
         return
 
     if not HTML_TEMPLATE.exists():
         print(f"[ERRO] Template HTML não encontrado: {HTML_TEMPLATE}", file=sys.stderr)
-        print("  Execute primeiro localmente para gerar o template inicial.", file=sys.stderr)
         sys.exit(1)
 
     print(f"[info] Injetando dados no template…")
-    html = inject_into_html(HTML_TEMPLATE, raw, ts)
+    html = inject_into_html(HTML_TEMPLATE, all_records, ts)
 
     out.write_text(html, encoding="utf-8")
     print(f"[ok] Relatório salvo em {out} ({out.stat().st_size // 1024} KB).")
@@ -356,8 +624,7 @@ def main():
                    or env.get("SLACK_REPORT_CHANNEL")
                    or env.get("TWILIO_SLACK_CHANNEL_ID"))
         if not channel:
-            print("[aviso] Nenhum canal Slack configurado (SLACK_REPORT_CHANNEL ou "
-                  "TWILIO_SLACK_CHANNEL_ID). Use --recipient.", file=sys.stderr)
+            print("[aviso] Nenhum canal Slack configurado.", file=sys.stderr)
         else:
             require(env, ["SLACK_BOT_TOKEN"], "enviar ao Slack")
             slack_upload_html(env["SLACK_BOT_TOKEN"], channel, out, ts)

@@ -388,6 +388,8 @@ def main():
                         help=f"Aba da planilha (padrão: AUDIT_SHEET_TAB do .env.local ou '{DEFAULT_TAB}')")
     parser.add_argument("--recipient", default=DEFAULT_RECIPIENT,
                         help=f"User ID do Slack (padrão: {DEFAULT_RECIPIENT})")
+    parser.add_argument("--output-dir", default=None,
+                        help="Diretório para salvar os PDFs (padrão: diretório temporário)")
     args = parser.parse_args()
 
     env = load_env()
@@ -413,7 +415,13 @@ def main():
         print("[ERRO] SLACK_BOT_TOKEN não configurado.", file=sys.stderr)
         sys.exit(1)
 
-    with tempfile.TemporaryDirectory() as tmpdir:
+    if args.output_dir:
+        os.makedirs(args.output_dir, exist_ok=True)
+        _ctx = type('_Ctx', (), {'__enter__': lambda s: args.output_dir, '__exit__': lambda s,*a: None})()
+    else:
+        _ctx = tempfile.TemporaryDirectory()
+
+    with _ctx as tmpdir:
         for analyst_raw, analyst_rows in sorted(grouped.items()):
             analyst_name = decode_analyst(analyst_raw)
             pdf_name     = f"[AUDITORIA DE ATENDIMENTOS] {analyst_name}.pdf"
