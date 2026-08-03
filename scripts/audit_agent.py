@@ -106,7 +106,9 @@ CANONICAL_ORDER = [
     "nota_E3",
     "nota_E4",
     "nota_E5",
+    "gap_para_100",
     "modelo",
+    "feedback_gestora",
 ]
 
 # Apelidos: cabeçalhos existentes (já normalizados) que devem casar com uma
@@ -114,6 +116,7 @@ CANONICAL_ORDER = [
 COLUMN_ALIASES = {
     "dataauditoria": "data",
     "dataavaliacao": "data",
+    "datadia": "data",
     "horarioconversa": "horario_conversa",
     "datahoraconversa": "horario_conversa",
     "responsavel": "responsavel_atendimento",
@@ -254,6 +257,14 @@ def _parse_iso(s: str):
             return None
 
 
+def _conv_date_brt(date_created: str) -> str:
+    """Converte date_created (UTC) para ISO em BRT. Fallback: datetime.now(BRT)."""
+    ts = _parse_iso(date_created)
+    if ts:
+        return ts.astimezone(BRT).isoformat()
+    return datetime.now(BRT).isoformat()
+
+
 def conversation_duration_min(conv: dict):
     """Duração aproximada da conversa em minutos (date_updated - date_created)."""
     ini = _parse_iso(conv.get("date_created"))
@@ -288,21 +299,53 @@ def analyst_of(conv: dict):
     return None
 
 
+def fetch_pool_metadata(auth: tuple, pool: list) -> dict:
+    """Busca participantes de todas as conversas do pool em paralelo.
+
+    Retorna dict sid → {'analyst': str|None, 'airton_only': bool, 'canal': str}.
+    Conversas Airton-only são aquelas sem nenhum participante com identity humana
+    (apenas identities contendo "airton" ou sem identity alguma — sem analista humano).
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def fetch_one(conv):
+        sid = conv.get("sid", "")
+        try:
+            participants = fetch_participants(auth, sid)
+            identities = [p.get("identity") for p in participants if p.get("identity")]
+            airton_ids = [i for i in identities if "airton" in i.lower()]
+            human_ids  = [i for i in identities if "airton" not in i.lower()]
+            analyst    = human_ids[0] if human_ids else None
+            # Airton-only: há pelo menos 1 participante Airton e nenhum humano
+            airton_only = bool(airton_ids) and not bool(human_ids)
+            canal = canal_from_participants(participants)
+            return sid, {"analyst": analyst, "airton_only": airton_only, "canal": canal}
+        except Exception:
+            return sid, {"analyst": None, "airton_only": False, "canal": ""}
+
+    results = {}
+    with ThreadPoolExecutor(max_workers=10) as ex:
+        futures = {ex.submit(fetch_one, conv): conv for conv in pool}
+        for future in as_completed(futures):
+            sid, meta = future.result()
+            results[sid] = meta
+    return results
+
+
 def select_conversations_for_audit(auth: tuple, limit: int, state: str,
                                    long_min: float = 60.0, long_share: float = 0.7,
                                    seed=None) -> tuple:
     """Seleciona conversas para auditoria com amostragem justa.
 
-    Regras (decisão do Henrique, 2026-07-02):
-      - Só conversas ENCERRADAS por padrão (state='closed') — não auditar as que
-        ainda estão acontecendo ao vivo.
+    Regras:
+      - Só conversas ENCERRADAS por padrão (state='closed').
       - Teto de `limit` conversas por rodada (padrão 10/dia).
-      - Priorizar conversas longas (> `long_min` minutos), mas NÃO só elas:
-        ~`long_share` da amostra vem das longas, o resto das curtas.
-      - Randomizar a escolha (com `seed` opcional para reprodutibilidade no dia).
-      - Espalhar entre analistas QUANDO identificáveis (ver analyst_of).
+      - Ao menos 1 conversa Airton-only (sem analista humano) por rodada.
+      - Ao menos 1 conversa por analista humano identificado no pool.
+      - Slots restantes preenchem com proporção long/short (~70% longas).
+      - Randomização com `seed` para reprodutibilidade.
 
-    Retorna (selecionadas, meta) onde meta traz contagens p/ transparência.
+    Retorna (selecionadas, meta).
     """
     params = {"PageSize": 50}
     if state and state != "all":
@@ -313,34 +356,73 @@ def select_conversations_for_audit(auth: tuple, limit: int, state: str,
 
     rng = random.Random(seed)
 
-    longs, shorts = [], []
-    for c in pool:
-        dur = conversation_duration_min(c)
-        (longs if (dur is not None and dur >= long_min) else shorts).append(c)
+    # Busca metadados do pool (analistas + Airton-only) em paralelo
+    print("[amostra] Classificando pool de conversas (participants)…", file=sys.stderr)
+    pool_meta = fetch_pool_metadata(auth, pool)
 
-    n_long = min(len(longs), round(limit * long_share))
-    selected = rng.sample(longs, n_long) if n_long else []
+    # Separa em grupos
+    airton_pool  = [c for c in pool if pool_meta.get(c.get("sid"), {}).get("airton_only")]
+    by_analyst: dict = {}
+    for c in pool:
+        sid  = c.get("sid", "")
+        meta = pool_meta.get(sid, {})
+        if meta.get("airton_only"):
+            continue
+        a = meta.get("analyst")
+        if a:
+            by_analyst.setdefault(a, []).append(c)
+
+    selected_sids: set = set()
+    selected: list = []
+
+    # 1. Ao menos 1 Airton-only
+    if airton_pool:
+        pick = rng.choice(airton_pool)
+        selected.append(pick)
+        selected_sids.add(pick.get("sid"))
+
+    # 2. Ao menos 1 por analista humano (até preencher limit)
+    analysts_sorted = sorted(by_analyst.keys(), key=lambda a: rng.random())
+    for a in analysts_sorted:
+        if len(selected) >= limit:
+            break
+        candidates = [c for c in by_analyst[a] if c.get("sid") not in selected_sids]
+        if candidates:
+            pick = rng.choice(candidates)
+            selected.append(pick)
+            selected_sids.add(pick.get("sid"))
+
+    # 3. Slots restantes: proporção long/short
+    remaining_pool = [c for c in pool if c.get("sid") not in selected_sids]
+    longs  = [c for c in remaining_pool if (conversation_duration_min(c) or 0) >= long_min]
+    shorts = [c for c in remaining_pool if (conversation_duration_min(c) or 0) < long_min]
 
     faltam = limit - len(selected)
-    if faltam > 0 and shorts:
-        selected += rng.sample(shorts, min(faltam, len(shorts)))
-
-    # Se ainda faltar (poucas curtas), completa com o resto das longas.
-    if len(selected) < limit:
-        resto = [c for c in longs if c not in selected]
-        if resto:
-            selected += rng.sample(resto, min(limit - len(selected), len(resto)))
+    if faltam > 0:
+        n_long = min(len(longs), round(faltam * long_share))
+        extra = rng.sample(longs, n_long) if n_long else []
+        extra += rng.sample(shorts, min(faltam - len(extra), len(shorts)))
+        if len(extra) < faltam:
+            resto = [c for c in longs if c not in extra]
+            extra += rng.sample(resto, min(faltam - len(extra), len(resto)))
+        selected += extra[:faltam]
 
     rng.shuffle(selected)
     selected = selected[:limit]
 
-    analistas = {a for a in (analyst_of(c) for c in selected) if a}
+    all_analysts = {pool_meta.get(c.get("sid"), {}).get("analyst")
+                    for c in selected if not pool_meta.get(c.get("sid"), {}).get("airton_only")}
+    analistas = {a for a in all_analysts if a}
+    n_airton  = sum(1 for c in selected if pool_meta.get(c.get("sid"), {}).get("airton_only"))
+
     meta = {
         "pool": len(pool),
-        "longas_no_pool": len(longs),
-        "curtas_no_pool": len(shorts),
+        "longas_no_pool": len([c for c in pool if (conversation_duration_min(c) or 0) >= long_min]),
+        "curtas_no_pool": len([c for c in pool if (conversation_duration_min(c) or 0) < long_min]),
+        "airton_only_no_pool": len(airton_pool),
         "selecionadas": len(selected),
         "analistas_identificados": len(analistas),
+        "airton_only_selecionadas": n_airton,
     }
     return selected, meta
 
@@ -563,18 +645,99 @@ def classificacao_por_nota(total: int) -> str:
     return "Crítico"
 
 
+def load_manager_feedback(env: dict) -> str:
+    """Lê feedbacks da gestora na planilha e retorna bloco de calibração para o system prompt.
+
+    Lê a coluna 'feedback_gestora' e usa os registros com feedback preenchido como
+    exemplos de calibração. Preserva o poder propositivo da auditoria: os feedbacks
+    são tratados como contexto adicional, não como substituição da rubrica.
+    """
+    try:
+        sheet_id_raw = env.get("GOOGLE_SHEET_ID", "").strip()
+        if not sheet_id_raw:
+            return ""
+        import re as _re
+        m = _re.search(r"/spreadsheets/d/([a-zA-Z0-9_-]+)", sheet_id_raw)
+        sheet_id = m.group(1) if m else sheet_id_raw
+
+        sa_file = find_service_account_file(env)
+        token = google_access_token(sa_file)
+        tab = env.get("AUDIT_SHEET_TAB") or "base_de_registros"
+        tab = resolve_tab(sheet_id, tab, token)
+
+        import urllib.parse as _up
+        rng = _up.quote(f"{tab}!A1:Z2000", safe="")
+        url = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{rng}"
+        resp = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=30)
+        if resp.status_code != 200:
+            return ""
+        values = resp.json().get("values", [])
+        if not values:
+            return ""
+        header = values[0]
+        if "feedback_gestora" not in header:
+            return ""
+
+        fb_idx = header.index("feedback_gestora")
+        sid_idx = header.index("conversation_sid") if "conversation_sid" in header else None
+        score_idx = header.index("score") if "score" in header else None
+        hist_idx = header.index("historico_task") if "historico_task" in header else None
+        resp_idx = header.index("responsavel_atendimento") if "responsavel_atendimento" in header else None
+
+        examples = []
+        for row in values[1:]:
+            row_p = row + [""] * (len(header) - len(row))
+            fb = row_p[fb_idx].strip() if fb_idx < len(row_p) else ""
+            if not fb:
+                continue
+            sid = row_p[sid_idx].strip() if sid_idx is not None else ""
+            score = row_p[score_idx].strip() if score_idx is not None else ""
+            hist = (row_p[hist_idx].strip()[:200] if hist_idx is not None else "")
+            resp_val = row_p[resp_idx].strip() if resp_idx is not None else ""
+            examples.append(
+                f"- Conversa {sid} (score={score}, analista={resp_val})\n"
+                f"  Contexto: {hist}\n"
+                f"  Feedback da gestora: {fb}"
+            )
+
+        if not examples:
+            return ""
+
+        bloco = (
+            "\n\n---\n\n## Calibração por feedback da gestora de qualidade\n\n"
+            "Os registros abaixo são feedbacks reais da gestora sobre auditorias anteriores. "
+            "Use-os como referência de calibração para manter consistência de critério. "
+            "Estes feedbacks **não substituem** a rubrica — use-os para ajustar o peso e o "
+            "enquadramento de situações similares. Mantenha o rigor propositivo: continue "
+            "identificando oportunidades de melhoria mesmo quando o analista compensou uma "
+            "ineficiência do Airton. Ao distribuir responsabilidades, identifique sempre se "
+            "a ação do analista foi uma correção intencional de um gap do Airton ou um "
+            "comportamento independente.\n\n"
+            + "\n".join(examples)
+        )
+        return bloco
+    except Exception:
+        return ""
+
+
 def audit_transcript(env: dict, model: str, rubrica: str, transcript: dict) -> dict:
     """Chama o Claude e devolve a avaliação já com total e classificação calculados."""
     require(env, ["ANTHROPIC_API_KEY"], "auditar com o Claude")
 
     tool = build_audit_tool()
+    feedback_block = load_manager_feedback(env)
     system = (
         rubrica
+        + feedback_block
         + "\n\n---\n\nVocê receberá a transcrição de UMA conversa. Avalie cada etapa "
           "(E0 a E5) usando a ferramenta `registrar_auditoria`. Dê a nota de cada etapa "
           "dentro do teto indicado, sempre ancorando em um trecho real. NÃO invente fatos. "
           "Se uma etapa não chegou a acontecer na janela observada, pontue proporcionalmente "
-          "e explique em `observacoes`."
+          "e explique em `observacoes`. Ao distribuir oportunidades de melhoria, sempre "
+          "separe responsabilidade do Airton (IA) e do analista humano. Quando o analista "
+          "adotar um comportamento para corrigir uma ineficiência do Airton e melhorar a "
+          "experiência do cliente, registre isso em `observacoes` e não penalize o analista "
+          "por isso — penalize o Airton se o gap for dele."
     )
     user_content = (
         f"Conversa: {transcript['conversation_sid']} "
@@ -586,6 +749,7 @@ def audit_transcript(env: dict, model: str, rubrica: str, transcript: dict) -> d
     body = {
         "model": model,
         "max_tokens": 2000,
+        "temperature": 0,
         "system": system,
         "messages": [{"role": "user", "content": user_content}],
         "tools": [tool],
@@ -650,7 +814,9 @@ def finalize_evaluation(transcript: dict, tool_input: dict, model: str) -> dict:
         "historico_task": (tool_input.get("historico_task") or "").strip(),
         "observacoes": (tool_input.get("observacoes") or "").strip(),
         "modelo": model,
-        "avaliado_em": datetime.now(BRT).isoformat(),
+        # avaliado_em usa a data real da conversa (horario_conversa em BRT), não o momento do audit.
+        # Isso evita que auditorias rodadas após meia-noite apareçam com data do dia seguinte.
+        "avaliado_em": _conv_date_brt(transcript.get("date_created")),
     }
 
 
@@ -671,6 +837,19 @@ def google_access_token(sa_file: Path) -> str:
         str(sa_file), scopes=["https://www.googleapis.com/auth/spreadsheets"])
     creds.refresh(GoogleRequest())
     return creds.token
+
+
+def _compute_gap_text(etapas_dict: dict) -> str:
+    """Retorna texto legível dos pontos não conquistados por etapa.
+    Ex: 'E1:−5 (Primeira Resposta) | E4:−20 (Follow-up Proativo)'
+    """
+    items = []
+    for e, max_pts, nome in zip(ETAPA_ORDEM, ETAPA_MAX.values(), ETAPA_NOME.values()):
+        nota = etapas_dict.get(e, {}).get("nota", 0) if isinstance(etapas_dict.get(e), dict) else 0
+        diff = max_pts - nota
+        if diff > 0:
+            items.append(f"{e}:−{diff} ({nome})")
+    return " | ".join(items)
 
 
 def build_field_values(ev: dict) -> dict:
@@ -714,7 +893,9 @@ def build_field_values(ev: dict) -> dict:
         "nota_E3": ev["etapas"]["E3"]["nota"],
         "nota_E4": ev["etapas"]["E4"]["nota"],
         "nota_E5": ev["etapas"]["E5"]["nota"],
+        "gap_para_100": _compute_gap_text(ev["etapas"]),
         "modelo": ev["modelo"],
+        "feedback_gestora": "",  # preenchido manualmente pela gestora no sheet
     }
 
 
@@ -783,16 +964,55 @@ def reconcile_header(existing: list) -> list:
     return list(existing) + faltantes
 
 
+def fetch_existing_sids(sheet_id: str, tab: str, token: str) -> set:
+    """Retorna o conjunto de conversation_sids já gravados na planilha."""
+    import urllib.parse as _up
+    rng = _up.quote(f"{tab}!A1:Z2000", safe="")
+    url = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{rng}"
+    resp = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=30)
+    if resp.status_code != 200:
+        return set()
+    values = resp.json().get("values", [])
+    if not values:
+        return set()
+    header = values[0]
+    if "conversation_sid" not in header:
+        return set()
+    sid_idx = header.index("conversation_sid")
+    return {row[sid_idx] for row in values[1:] if sid_idx < len(row) and row[sid_idx]}
+
+
 def write_to_sheet(sheet_id: str, tab: str, token: str, evaluations: list) -> tuple:
-    """Reconcilia o cabeçalho com a planilha existente e grava as linhas alinhadas a ele."""
+    """Reconcilia o cabeçalho com a planilha existente e grava as linhas alinhadas a ele.
+    Antes de gravar, filtra avaliações cujo conversation_sid já existe para evitar duplicatas.
+    """
     tab = resolve_tab(sheet_id, tab, token)
     existing = read_header(sheet_id, tab, token)
     final_header = reconcile_header(existing)
     if final_header != existing:
         write_header(sheet_id, tab, token, final_header)
 
-    rows = []
+    # Deduplicação: não grava SIDs que já estão na planilha
+    existing_sids = fetch_existing_sids(sheet_id, tab, token)
+    novas_evals = []
+    duplicatas = []
     for ev in evaluations:
+        sid = ev.get("conversation_sid", "")
+        if sid and sid in existing_sids:
+            duplicatas.append(sid)
+        else:
+            novas_evals.append(ev)
+
+    if duplicatas:
+        print(f"  [dedup] {len(duplicatas)} SID(s) já existem na planilha — ignorados: "
+              f"{', '.join(duplicatas[:3])}{'...' if len(duplicatas) > 3 else ''}")
+
+    if not novas_evals:
+        novas = [c for c in final_header if c not in (existing or [])]
+        return tab, 0, novas
+
+    rows = []
+    for ev in novas_evals:
         vals = build_field_values(ev)
         row = []
         for cell in final_header:
@@ -1078,13 +1298,10 @@ def transcripts_from_twilio(env: dict, args) -> list:
             long_min=args.long_min, long_share=args.long_share, seed=seed)
         print(f"[amostra] {meta['selecionadas']} de {meta['pool']} conversas '{args.state}' "
               f"({meta['longas_no_pool']} longas >{args.long_min:.0f}min no pool). "
-              f"Analistas identificados na amostra: {meta['analistas_identificados']}.",
+              f"Analistas cobertos: {meta['analistas_identificados']} | "
+              f"Airton-only: {meta['airton_only_selecionadas']} "
+              f"(pool: {meta['airton_only_no_pool']}).",
               file=sys.stderr)
-        if meta["analistas_identificados"] == 0:
-            print("[aviso] Não consegui identificar o analista responsável nessas conversas "
-                  "(o Twilio Conversations não traz o nome). A randomização entre analistas "
-                  "ainda não está ativa — depende de ligar o TaskRouter. Ver nota no chat.",
-                  file=sys.stderr)
 
     if not convs:
         print("Nenhuma conversa encontrada com esses critérios.", file=sys.stderr)

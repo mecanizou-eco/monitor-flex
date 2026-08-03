@@ -151,19 +151,23 @@ def main():
     # Encontra linhas com data_dia >= from_date
     target_row_indices = []
     target_sids = []
+    original_dates = {}  # sid → data original da conversa (ex: "21/07/2026")
     for i, r in enumerate(row_dicts):
-        raw_date = r.get("data_dia", "")
+        # A coluna pode chamar "data_dia" ou "data" dependendo da versão da planilha
+        raw_date = r.get("data_dia", "") or r.get("data", "")
         iso = to_iso(raw_date)
         sid = r.get("conversation_sid", "").strip()
         if iso >= from_date and sid:
             target_row_indices.append(i)
             target_sids.append(sid)
+            original_dates[sid] = raw_date
 
     print(f"[info] Encontradas {len(target_sids)} conversas com data >= {from_date}:")
     by_day = {}
     for r in row_dicts:
-        if to_iso(r.get("data_dia", "")) >= from_date:
-            d = r.get("data_dia", "?")
+        raw_date = r.get("data_dia", "") or r.get("data", "")
+        if to_iso(raw_date) >= from_date:
+            d = raw_date or "?"
             by_day[d] = by_day.get(d, 0) + 1
     for d in sorted(by_day):
         print(f"  {d}: {by_day[d]} conversas")
@@ -194,6 +198,9 @@ def main():
             t["canal"] = aa.canal_from_participants(participants)
             t["responsavel_atendimento"] = aa.atendente_from_participants(participants)
             ev = aa.audit_transcript(env, model, rubrica, t)
+            # Preserva a data original da conversa em vez de usar o timestamp de hoje
+            if sid in original_dates and original_dates[sid]:
+                ev["avaliado_em"] = original_dates[sid]
             aa.print_evaluation(ev)
             evaluations.append(ev)
         except Exception as e:
