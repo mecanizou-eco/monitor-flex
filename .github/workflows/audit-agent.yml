@@ -1,16 +1,18 @@
 name: Auditoria de Atendimento (Twilio + Claude)
 
-# Audita uma amostra das conversas encerradas do dia, grava as notas na planilha
-# Google e publica o resumo consolidado (Mensagem 2) no Slack.
+# Gera o relatório HTML de auditoria 3x/dia em dias úteis, puxando 100%
+# dos atendimentos do Redshift (a partir de 01/08/2026) + histórico do Sheets.
+# O audit_agent.py (amostragem via Twilio/Anthropic) ainda roda às 18h30.
 #
-# Roda 1x/dia, em dias úteis, logo após o último corte do monitor (18h BRT),
-# para pegar o dia praticamente fechado.
-#
-# Horário (America/Sao_Paulo, UTC-3):
-#   18h30 BRT -> 21:30 UTC
+# Horários (America/Sao_Paulo, UTC-3):
+#   11h00 BRT -> 14:00 UTC  — corte do meio da manhã (HTML apenas)
+#   15h00 BRT -> 18:00 UTC  — corte da tarde (HTML apenas)
+#   18h30 BRT -> 21:30 UTC  — corte final: audit_agent + HTML
 on:
   schedule:
-    - cron: "30 21 * * 1-5"    # 18h30 BRT, seg-sex
+    - cron: "0 14 * * 1-5"     # 11h00 BRT, seg-sex  (HTML apenas)
+    - cron: "0 18 * * 1-5"     # 15h00 BRT, seg-sex  (HTML apenas)
+    - cron: "30 21 * * 1-5"    # 18h30 BRT, seg-sex  (audit_agent + HTML)
   workflow_dispatch:            # permite rodar manualmente pela aba Actions
     inputs:
       sample:
@@ -78,21 +80,38 @@ jobs:
           AUDIT_SHEET_TAB=${AUDIT_SHEET_TAB}
           EOF
 
-      - name: Roda a auditoria e publica o resumo
+      # audit_agent.py (amostragem Twilio/Anthropic) só roda no corte das 18h30 UTC
+      # ou quando disparado manualmente. Nos cortes das 14h e 18h UTC gera só o HTML.
+      - name: Detecta corte atual
+        id: corte
+        run: |
+          HORA_UTC=$(date -u +%H)
+          MINUTO_UTC=$(date -u +%M)
+          # Manual dispatch OU 21h UTC (18h30 BRT) → roda audit_agent
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$HORA_UTC" = "21" ]; then
+            echo "run_agent=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_agent=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Roda a auditoria e publica o resumo (só 18h30 BRT)
+        if: steps.corte.outputs.run_agent == 'true'
         run: |
           SAMPLE="${{ github.event.inputs.sample || '10' }}"
           DRY_FLAG=""
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then DRY_FLAG="--dry-run"; fi
           python3 scripts/audit_agent.py --sample "$SAMPLE" --post-slack $DRY_FLAG
 
-      - name: Gera PDFs de auditoria e envia para Thais no Slack
-        if: github.event.inputs.dry_run != 'true'
+      - name: Gera PDFs de auditoria e envia para Thais no Slack (só 18h30 BRT)
+        if: steps.corte.outputs.run_agent == 'true' && github.event.inputs.dry_run != 'true'
         run: python3 scripts/generate_audit_pdfs.py
 
-      - name: Gera relatório HTML interativo e envia ao Slack
+      - name: Gera relatório HTML interativo e envia ao Slack (todos os cortes)
         if: github.event.inputs.dry_run != 'true'
         env:
           SLACK_REPORT_CHANNEL: ${{ secrets.SLACK_REPORT_CHANNEL }}
+          METABASE_URL: ${{ secrets.METABASE_URL }}
+          METABASE_API_KEY: ${{ secrets.METABASE_API_KEY }}
         run: |
           python3 scripts/generate_audit_report.py --post-slack
 
