@@ -165,3 +165,74 @@ não é obrigatório — considere a conversa resolvida pelo cliente e não pena
 - V2 — Follow-up proativo dentro do prazo
 - V3 — Comunicação clara com prazo específico
 - V4 — Gerenciou expectativa corretamente em caso complexo
+
+---
+
+## Regras de atribuição de responsabilidade: Analista corrigindo gap do Airton
+
+Quando o **analista humano** adota um comportamento que compensa uma ineficiência do Airton com o objetivo de melhorar a experiência do cliente final:
+
+1. **Não penalizar o analista** por essa ação. O comportamento deve ser lido como correção ativa, não como desvio.
+2. **Registrar em `observacoes`** de forma explícita: "O analista compensou a ausência de X do Airton ao fazer Y."
+3. **Penalizar o Airton** (em `sugestoes_airton`) pelo gap que gerou a necessidade de correção — se o gap for claramente do Airton.
+4. **Manter o poder propositivo:** mesmo quando o analista corrigiu bem, registre a oportunidade de melhoria estrutural (para que o Airton evolua e o analista não precise compensar).
+
+**Exemplos práticos:**
+- Airton não apresentou o contexto no handoff → analista pediu ao cliente para repetir o problema → não penalizar o analista por P4; penalizar o Airton em `sugestoes_airton` por handoff sem contexto.
+- Airton enviou "em breve" sem dar follow-up → analista proativamente deu a informação → anotar como V2 para o analista; apontar gap do Airton em `sugestoes_airton`.
+- Airton roteou para fila errada → analista transferiu para fila correta → transferência não é P4 (é correção); penalizar o Airton pelo roteamento errado (E0).
+
+## Calibração de score — âncoras de referência
+
+Use as faixas abaixo para manter consistência entre conversas. Ajuste apenas quando a evidência textual justificar.
+
+| Comportamento observado | Score esperado |
+|---|---|
+| Tudo dentro do SLA, apresentação, follow-up, encerramento correto, sem problemas | 90–100 (Excelente) |
+| 1 gap menor (ex.: sem apresentação OU sem prazo específico em E3) | 75–89 (Bom) |
+| 2 gaps ou 1 gap médio (ex.: sem follow-up proativo) | 60–74 (Regular) |
+| Follow-up ausente + outro gap estrutural | 40–59 (Abaixo do esperado) |
+| Múltiplos gaps graves (sem primeira resposta, sem diagnóstico, encerramento abrupto) | < 40 (Crítico) |
+
+**Nota sobre etapas individuais:**
+- E0 (10 pts): desconto apenas se roteamento claramente errado ou SLA de 30s perdido
+- E1 (15 pts): desconto por falta de apresentação (−3 a −5), falta de prazo de retorno (−3 a −5), resposta fora de SLA (−5 a −10)
+- E2 (20 pts): pontuação integral se coleta mínima foi feita e informações são corretas
+- E3 (20 pts): desconto principal por ausência de prazo de retorno específico (nunca "em breve") — até −10
+- E4 (25 pts): é a etapa com maior peso e maior índice histórico de falha; desconto integral (0 pts) quando não houve follow-up e o cliente teve que cobrar
+- E5 (10 pts): desconto total se não houve encerramento formal e a conversa não terminou com "Seu pedido foi feito!"
+
+## Campos de saída esperados (para integração com a planilha)
+
+O resultado de cada auditoria deve conter os seguintes campos, na ordem exata em que aparecem na planilha:
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `data` | ISO timestamp | Data/hora da **conversa** em BRT (não da auditoria) |
+| `horario_conversa` | ISO timestamp UTC | `date_created` do Twilio, exatamente como retornado |
+| `canal` | string | `whatsapp`, `sms`, etc. |
+| `responsavel_atendimento` | string | Identity/login do analista |
+| `score` | inteiro 0–100 | Soma das notas E0+E1+E2+E3+E4+E5 calculada externamente (não pelo modelo) |
+| `evidencia_texto` | string | Trechos das etapas onde houve desconto, formato `[E0] trecho  •  [E3] trecho` |
+| `problemas_padronizados` | string | Códigos P separados por vírgula: `P1, P4` |
+| `virtudes_padronizadas` | string | Códigos V separados por vírgula: `V2, V3` |
+| `sugestoes_melhoria` | string | (alias de sugestoes_analista) itens separados por ` | ` |
+| `sugestoes_analista` | string | Sugestões exclusivas para o analista humano, separadas por ` | ` |
+| `sugestoes_airton` | string | Sugestões exclusivas para o Airton (IA), separadas por ` | ` |
+| `observacoes` | string | Contexto adicional, ressalvas, atribuições analista/Airton |
+| `classificacao` | string | Excelente / Bom / Regular / Abaixo do esperado / Crítico |
+| `historico_task` | string | Resumo em 1-2 frases: o que o cliente queria e como terminou |
+| `conversation_sid` | string | SID do Twilio (CH...) — chave de deduplicação |
+| `friendly_name` | string | Nome amigável da conversa no Twilio |
+| `state` | string | Estado da conversa: `closed`, `active`, `inactive` |
+| `num_mensagens` | inteiro | Total de mensagens na conversa |
+| `nota_E0` | inteiro | Nota da etapa 0 (máx 10) |
+| `nota_E1` | inteiro | Nota da etapa 1 (máx 15) |
+| `nota_E2` | inteiro | Nota da etapa 2 (máx 20) |
+| `nota_E3` | inteiro | Nota da etapa 3 (máx 20) |
+| `nota_E4` | inteiro | Nota da etapa 4 (máx 25) |
+| `nota_E5` | inteiro | Nota da etapa 5 (máx 10) |
+| `modelo` | string | Identificador do modelo usado (ex: `claude-sonnet-4-6`) |
+| `feedback_gestora` | string | Preenchido manualmente pela gestora — deixar vazio |
+
+**Regra de cálculo do score:** o campo `score` é sempre a soma aritmética das notas das etapas, calculada pelo código após o modelo retornar. Nunca confie na aritmética do próprio modelo.
