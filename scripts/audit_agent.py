@@ -1413,6 +1413,18 @@ def main():
         transcripts = transcripts_from_twilio(env, args)
 
     if not transcripts:
+        slack_token = env.get("SLACK_BOT_TOKEN")
+        if slack_token and not args.dry_run:
+            from datetime import datetime, timezone, timedelta
+            BRT = timezone(timedelta(hours=-3))
+            ts_now = datetime.now(BRT).strftime("%d/%m/%Y %H:%M")
+            post_to_slack(
+                slack_token,
+                "D06RTBVPUUT",
+                f":warning: *Auditoria sem conversas* ({ts_now})\n"
+                "Nenhuma conversa foi selecionada para auditoria nesta rodada.\n"
+                "Verifique os logs da Action ou se há conversas concluídas no Twilio.",
+            )
         return
 
     rubrica = RUBRICA_PATH.read_text(encoding="utf-8")
@@ -1429,6 +1441,21 @@ def main():
 
     if not evaluations:
         print("Nenhuma avaliação concluída.", file=sys.stderr)
+        slack_token = env.get("SLACK_BOT_TOKEN")
+        if slack_token and not args.dry_run:
+            from datetime import datetime, timezone, timedelta
+            BRT = timezone(timedelta(hours=-3))
+            ts_now = datetime.now(BRT).strftime("%d/%m/%Y %H:%M")
+            try:
+                post_to_slack(
+                    slack_token,
+                    "D06RTBVPUUT",
+                    f":red_circle: *Auditoria: 0 avaliações concluídas* ({ts_now})\n"
+                    "As conversas foram selecionadas mas todas falharam durante a avaliação.\n"
+                    "Verifique os logs da Action.",
+                )
+            except Exception as e:
+                print(f"[ERRO] DM Slack: {e}", file=sys.stderr)
         sys.exit(1)
 
     if args.save_local:

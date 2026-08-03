@@ -372,7 +372,7 @@ def read_redshift_via_metabase(env: dict, from_date: str = TRANSITION_DATE) -> l
         json={"database": db, "type": "native", "native": {"query": sql}},
         timeout=180,
     )
-    if resp.status_code != 200:
+    if resp.status_code not in (200, 202):
         print(f"[ERRO] Metabase/Redshift {resp.status_code}: {resp.text[:400]}", file=sys.stderr)
         return []
 
@@ -491,6 +491,24 @@ def inject_into_html(template_path: Path, records: list, ts: str) -> str:
 # Slack
 # ---------------------------------------------------------------------------
 
+SLACK_ALERT_DM = "D06RTBVPUUT"  # DM pessoal para alertas de falha/sem resultado
+
+
+def slack_send_message(token: str, channel: str, text: str) -> None:
+    """Envia uma mensagem de texto simples ao Slack."""
+    resp = requests.post(
+        "https://slack.com/api/chat.postMessage",
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        json={"channel": channel, "text": text, "mrkdwn": True},
+        timeout=30,
+    )
+    rj = resp.json()
+    if rj.get("ok"):
+        print(f"[ok] Alerta enviado ao Slack ({channel}).")
+    else:
+        print(f"[ERRO] Slack postMessage: {rj}", file=sys.stderr)
+
+
 def slack_upload_html(token: str, channel: str, html_path: Path, ts: str):
     content  = html_path.read_bytes()
     filename = f"relatorio_auditoria_{ts.replace('/', '-').replace(' ', '_').replace(':', '')}.html"
@@ -584,11 +602,32 @@ def main():
             redshift_records = build_redshift_records(redshift_raw)
             print(f"[info] Redshift: {len(redshift_records)} registros.")
             all_records.extend(redshift_records)
+            if not redshift_records and not args.no_redshift:
+                slack_token = env.get("SLACK_BOT_TOKEN")
+                if slack_token:
+                    ts_now = datetime.now(BRT).strftime("%d/%m/%Y %H:%M")
+                    slack_send_message(
+                        slack_token,
+                        SLACK_ALERT_DM,
+                        f":warning: *Redshift: 0 auditorias recebidas* ({ts_now})\n"
+                        "A consulta ao Metabase retornou vazio para registros ≥ 01/08.\n"
+                        "Verifique os logs da Action.",
+                    )
         except Exception as e:
             print(f"[aviso] Falha ao ler Redshift: {e}", file=sys.stderr)
 
     if not all_records:
         print("[ERRO] Nenhum registro carregado de nenhuma fonte.", file=sys.stderr)
+        slack_token = env.get("SLACK_BOT_TOKEN")
+        if slack_token:
+            ts_now = datetime.now(BRT).strftime("%d/%m/%Y %H:%M")
+            slack_send_message(
+                slack_token,
+                SLACK_ALERT_DM,
+                f":warning: *Relatório de auditoria sem dados* ({ts_now})\n"
+                "Nenhum registro foi carregado do Sheets nem do Redshift.\n"
+                "Verifique os logs da Action para detalhes.",
+            )
         sys.exit(1)
 
     # Ordena por data
