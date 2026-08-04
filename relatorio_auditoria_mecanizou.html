@@ -1669,12 +1669,10 @@ function exportAnalystProfile(name) {
       <td style="padding:6px 10px;color:#e2e8f0;font-size:11px">${r.p.join(', ')||'—'}</td>
       <td style="padding:6px 10px;color:#e2e8f0;font-size:11px">${r.v.join(', ')||'—'}</td>
       <td style="padding:6px 10px;color:#94a3b8;font-size:11px;max-width:200px">${r.h||'—'}</td>
-      <td style="padding:6px 10px;color:#94a3b8;font-size:11px;max-width:220px">
+      <td style="padding:6px 10px;color:#94a3b8;font-size:11px;max-width:220px;line-height:1.5">
         ${(r.g||[]).length === 0
           ? '<span style="color:#22c55e">✓ 100%</span>'
-          : r.src === 'redshift'
-            ? (r.g||[]).map(g => `<div style="margin-bottom:2px;line-height:1.4">${g}</div>`).join('')
-            : (r.g||[]).join(' | ')
+          : (r.g||[]).map(g => `<div style="margin-bottom:2px">${g}</div>`).join('')
         }
       </td>
     </tr>`;
@@ -1948,17 +1946,10 @@ function renderConvTable(data) {
         <td>${probPills || '<span style="color:var(--text-muted);font-size:11px">—</span>'}</td>
         <td>${virtPills || '<span style="color:var(--text-muted);font-size:11px">—</span>'}</td>
         <td style="max-width:260px;font-size:11px;color:var(--text-muted);white-space:normal">${r.h || ''}</td>
-        <td style="font-size:10px;white-space:normal;max-width:260px">
+        <td style="font-size:11px;white-space:normal;max-width:260px;color:#94a3b8;line-height:1.5">
           ${(r.g||[]).length === 0
-            ? '<span style="color:#22c55e;font-size:11px">✓ 100%</span>'
-            : r.src === 'redshift'
-              ? (r.g||[]).map(g => `<div style="color:#94a3b8;margin-bottom:3px;line-height:1.4">${g}</div>`).join('')
-              : (r.g||[]).map(g => {
-                  const code = g.split(':')[0];
-                  const colors = {E0:'#94a3b8',E1:'#f97316',E2:'#eab308',E3:'#06b6d4',E4:'#ef4444',E5:'#a78bfa'};
-                  const clr = colors[code] || '#94a3b8';
-                  return `<span class="pill" data-tip="${g}" style="font-size:9px;padding:1px 5px;background:${clr}22;color:${clr};border-color:${clr}44">${g.split(' (')[0]}</span>`;
-                }).join(' ')
+            ? '<span style="color:#22c55e">✓ 100%</span>'
+            : (r.g||[]).map(g => `<div style="margin-bottom:3px">${g}</div>`).join('')
           }
         </td>
       </tr>

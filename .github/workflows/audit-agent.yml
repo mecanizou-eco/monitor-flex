@@ -39,18 +39,29 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Escreve a conta de serviço do Google a partir do secret
+        env:
+          GOOGLE_SA_JSON: ${{ secrets.GOOGLE_SA_JSON }}
+        run: |
+          printf '%s' "$GOOGLE_SA_JSON" > google-sa.json
+
       - name: Monta .env.local a partir dos secrets
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           TWILIO_SLACK_CHANNEL_ID: ${{ secrets.TWILIO_SLACK_CHANNEL_ID }}
           METABASE_URL: ${{ secrets.METABASE_URL }}
           METABASE_API_KEY: ${{ secrets.METABASE_API_KEY }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          AUDIT_SHEET_TAB: ${{ secrets.AUDIT_SHEET_TAB }}
         run: |
           cat > .env.local <<EOF
           SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
           TWILIO_SLACK_CHANNEL_ID=${TWILIO_SLACK_CHANNEL_ID}
           METABASE_URL=${METABASE_URL}
           METABASE_API_KEY=${METABASE_API_KEY}
+          GOOGLE_SHEET_ID=${GOOGLE_SHEET_ID}
+          GOOGLE_SA_FILE=google-sa.json
+          AUDIT_SHEET_TAB=${AUDIT_SHEET_TAB}
           EOF
 
       - name: Gera relatório HTML interativo e envia ao Slack
@@ -99,4 +110,4 @@ jobs:
 
       - name: Limpa segredos em disco
         if: always()
-        run: rm -f .env.local
+        run: rm -f .env.local google-sa.json

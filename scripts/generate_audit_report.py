@@ -2,7 +2,11 @@
 """
 Gerador do Relatório HTML de Auditoria de Atendimento — Mecanizou
 
-Fonte de dados: Redshift via Metabase API (100% das conversas com task completada).
+Fontes de dados:
+  - Google Sheets (planilha histórica) → registros até 31/07/2026  [src="sheet"]
+  - Redshift via Metabase API          → registros a partir de 01/08/2026 [src="redshift"]
+
+A base do Sheets não cresce mais, mas os registros históricos continuam no HTML.
 
 Uso local:
     python3 scripts/generate_audit_report.py
@@ -11,6 +15,9 @@ Uso local:
     python3 scripts/generate_audit_report.py --dry-run
 
 Variáveis lidas do .env.local:
+    GOOGLE_SHEET_ID       — id da planilha histórica (Sheets)
+    GOOGLE_SA_FILE        — (opcional) caminho do JSON da conta de serviço Google
+    AUDIT_SHEET_TAB       — (opcional) aba. Padrão: base_de_registros
     METABASE_URL          — URL base do Metabase (ex: https://metabase.mecanizou.com)
     METABASE_API_KEY      — chave de API do Metabase
     METABASE_REDSHIFT_DB  — (opcional) ID do banco Redshift no Metabase. Padrão: 8
@@ -24,9 +31,9 @@ import json
 import os
 import re
 import sys
+import urllib.parse
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-
 
 import requests
 from dotenv import dotenv_values
@@ -41,8 +48,9 @@ HTML_TEMPLATE  = BASE_DIR / "relatorio_auditoria_mecanizou.html"
 DEFAULT_OUTPUT = BASE_DIR / "relatorio_auditoria_mecanizou.html"
 
 BRT = timezone(timedelta(hours=-3))
+DEFAULT_TAB = "base_de_registros"
 
-# Data de início do Redshift (primeiro dia útil com 100% de cobertura)
+# Sheets: registros até esta data (exclusive). Redshift: a partir dela.
 REDSHIFT_START_DATE = "2026-08-01"
 
 # ID do banco Redshift no Metabase (fallback se METABASE_REDSHIFT_DB não estiver no env)
@@ -86,7 +94,8 @@ def load_env() -> dict:
     env = {}
     if ENV_PATH.exists():
         env = dict(dotenv_values(ENV_PATH))
-    for k in ("SLACK_BOT_TOKEN", "SLACK_REPORT_CHANNEL", "TWILIO_SLACK_CHANNEL_ID",
+    for k in ("GOOGLE_SHEET_ID", "GOOGLE_SA_FILE", "AUDIT_SHEET_TAB",
+              "SLACK_BOT_TOKEN", "SLACK_REPORT_CHANNEL", "TWILIO_SLACK_CHANNEL_ID",
               "METABASE_URL", "METABASE_API_KEY", "METABASE_REDSHIFT_DB"):
         if os.environ.get(k):
             env[k] = os.environ[k]
@@ -98,6 +107,30 @@ def require(env, keys, context):
     if missing:
         print(f"[ERRO] Para {context}, faltam no .env.local: {', '.join(missing)}", file=sys.stderr)
         sys.exit(1)
+
+
+def find_sa_file(env) -> Path:
+    if env.get("GOOGLE_SA_FILE"):
+        p = Path(env["GOOGLE_SA_FILE"])
+        return p if p.is_absolute() else BASE_DIR / p
+    candidates = sorted(BASE_DIR.glob("mecanizou-*.json"))
+    if candidates:
+        return candidates[0]
+    print("[ERRO] Não encontrei o JSON da conta de serviço do Google.", file=sys.stderr)
+    sys.exit(1)
+
+
+def google_token(sa_file: Path) -> str:
+    try:
+        from google.oauth2 import service_account
+        from google.auth.transport.requests import Request as GReq
+    except ImportError:
+        print("[ERRO] google-auth ausente. Rode: pip install -r requirements.txt", file=sys.stderr)
+        sys.exit(1)
+    creds = service_account.Credentials.from_service_account_file(
+        str(sa_file), scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"])
+    creds.refresh(GReq())
+    return creds.token
 
 
 # ---------------------------------------------------------------------------
@@ -162,6 +195,17 @@ def is_excluded(raw: str) -> bool:
 # Gap computation
 # ---------------------------------------------------------------------------
 
+def compute_gap_codes(etapas: list) -> list:
+    """Gap para registros do Sheets em formato dissertativo: ['Primeira Resposta (−5 pts)', ...]"""
+    gaps = []
+    for i, (mx, nome) in enumerate(zip(ETAPA_MAX_LIST, ETAPA_NAMES)):
+        nota = etapas[i] if i < len(etapas) else 0
+        diff = mx - nota
+        if diff > 0:
+            gaps.append(f"{nome} (−{diff} pts)")
+    return gaps
+
+
 def compute_gap_descriptive(etapas_notas: list, etapas_detalhe_json: str) -> list:
     """Gap descritivo (Redshift): ['Primeira Resposta: Analista não se apresentou...', ...]
 
@@ -188,6 +232,91 @@ def compute_gap_descriptive(etapas_notas: list, etapas_detalhe_json: str) -> lis
         else:
             gaps.append(f"{nome} (−{diff} pts)")
     return gaps
+
+
+# ---------------------------------------------------------------------------
+# Google Sheets (histórico até 31/07/2026 — base congelada)
+# ---------------------------------------------------------------------------
+
+def read_sheet(sheet_id: str, tab: str, token: str) -> list:
+    rng = urllib.parse.quote(f"{tab}!A1:Z2000", safe="")
+    url = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{rng}"
+    resp = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=30)
+    if resp.status_code != 200:
+        raise RuntimeError(f"Sheets API {resp.status_code}: {resp.text[:400]}")
+    values = resp.json().get("values", [])
+    if not values:
+        return []
+    header = values[0]
+    records = []
+    for row in values[1:]:
+        row_padded = row + [""] * (len(header) - len(row))
+        records.append(dict(zip(header, row_padded)))
+    return records
+
+
+AIRTON_KEYWORDS = {"airton", "(ia)", "n1"}
+
+def is_airton_involved(record: dict) -> bool:
+    combined = " ".join([
+        record.get("observacoes", ""),
+        record.get("historico_task", ""),
+        record.get("evidencia_texto", ""),
+    ]).lower()
+    return any(kw in combined for kw in AIRTON_KEYWORDS)
+
+
+def build_sheet_records(sheet_records: list) -> list:
+    """Converte registros da planilha no formato compacto para o HTML.
+    Inclui apenas registros com data < REDSHIFT_START_DATE (histórico até 31/07).
+    """
+    out = []
+    for r in sheet_records:
+        resp = r.get("responsavel_atendimento", "").strip()
+        if is_excluded(resp):
+            continue
+
+        score_raw = r.get("score", "").strip()
+        try:
+            score = int(float(score_raw))
+        except (ValueError, TypeError):
+            score = 0
+
+        etapas = []
+        for e in ["E0", "E1", "E2", "E3", "E4", "E5"]:
+            try:
+                etapas.append(int(r.get(f"nota_{e}", "0") or "0"))
+            except (ValueError, TypeError):
+                etapas.append(0)
+
+        probs = [p.strip() for p in r.get("problemas_padronizados", "").split(",") if p.strip()]
+        virts = [v.strip() for v in r.get("virtudes_padronizadas", "").split(",") if v.strip()]
+        hist  = (r.get("historico_task", "") or "").strip()
+
+        horario = r.get("horario_conversa", "")
+        data_conversa = to_iso(r.get("data_dia", "") or horario or r.get("data", ""))
+
+        if not is_valid_iso(data_conversa):
+            continue
+        if data_conversa >= REDSHIFT_START_DATE:
+            continue
+
+        nome_analista = normalize_analyst(resp)
+
+        out.append({
+            "d":   data_conversa,
+            "a":   nome_analista,
+            "s":   score,
+            "c":   r.get("classificacao", ""),
+            "p":   probs,
+            "v":   virts,
+            "e":   etapas,
+            "h":   hist,
+            "g":   compute_gap_codes(etapas),
+            "air": is_airton_involved(r),
+            "src": "sheet",
+        })
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -432,27 +561,60 @@ def main():
     args = parser.parse_args()
 
     env = load_env()
+    tab = env.get("AUDIT_SHEET_TAB") or DEFAULT_TAB
     out = Path(args.output) if args.output else DEFAULT_OUTPUT
 
+    all_records: list = []
+
+    # ── Fonte 1: Google Sheets (histórico ≤ 31/07, base congelada) ──────────
+    if env.get("GOOGLE_SHEET_ID"):
+        sheet_id = env["GOOGLE_SHEET_ID"].strip()
+        m = re.search(r"/spreadsheets/d/([a-zA-Z0-9_-]+)", sheet_id)
+        if m:
+            sheet_id = m.group(1)
+        try:
+            sa_file = find_sa_file(env)
+            print(f"[info] Google Sheets: autenticando com {sa_file.name}…")
+            token = google_token(sa_file)
+            print(f"[info] Google Sheets: lendo aba '{tab}'…")
+            sheet_raw = read_sheet(sheet_id, tab, token)
+            sheet_records = build_sheet_records(sheet_raw)
+            print(f"[info] Google Sheets: {len(sheet_records)} registros (histórico até 31/07).")
+            all_records.extend(sheet_records)
+        except Exception as e:
+            print(f"[aviso] Falha ao ler Sheets: {e}", file=sys.stderr)
+    else:
+        print("[info] GOOGLE_SHEET_ID ausente — ignorando Sheets.", file=sys.stderr)
+
+    # ── Fonte 2: Redshift via Metabase (≥ 01/08, 100% cobertura) ────────────
     print(f"[info] Redshift: consultando via Metabase (a partir de {REDSHIFT_START_DATE})…")
     try:
         redshift_raw = read_redshift_via_metabase(env)
-        all_records  = build_redshift_records(redshift_raw)
-        print(f"[info] Redshift: {len(all_records)} registros.")
+        redshift_records = build_redshift_records(redshift_raw)
+        print(f"[info] Redshift: {len(redshift_records)} registros.")
+        all_records.extend(redshift_records)
+        if not redshift_records:
+            slack_token = env.get("SLACK_BOT_TOKEN")
+            if slack_token:
+                ts_now = datetime.now(BRT).strftime("%d/%m/%Y %H:%M")
+                slack_send_message(
+                    slack_token, SLACK_ALERT_DM,
+                    f":warning: *Redshift: 0 auditorias recebidas* ({ts_now})\n"
+                    "A consulta ao Metabase retornou vazio para registros ≥ 01/08.\n"
+                    "Verifique os logs da Action.",
+                )
     except Exception as e:
-        print(f"[ERRO] Falha ao ler Redshift: {e}", file=sys.stderr)
-        all_records = []
+        print(f"[aviso] Falha ao ler Redshift: {e}", file=sys.stderr)
 
     if not all_records:
-        print("[ERRO] Nenhum registro carregado do Redshift.", file=sys.stderr)
+        print("[ERRO] Nenhum registro carregado de nenhuma fonte.", file=sys.stderr)
         slack_token = env.get("SLACK_BOT_TOKEN")
         if slack_token:
             ts_now = datetime.now(BRT).strftime("%d/%m/%Y %H:%M")
             slack_send_message(
-                slack_token,
-                SLACK_ALERT_DM,
+                slack_token, SLACK_ALERT_DM,
                 f":warning: *Relatório de auditoria sem dados* ({ts_now})\n"
-                "O Redshift não retornou registros.\n"
+                "Nenhum registro carregado do Sheets nem do Redshift.\n"
                 "Verifique os logs da Action para detalhes.",
             )
         sys.exit(1)
@@ -464,7 +626,10 @@ def main():
 
     if args.dry_run:
         scores = [r["s"] for r in all_records if r["s"] > 0]
+        sheet_n = sum(1 for r in all_records if r.get("src") == "sheet")
+        rs_n    = sum(1 for r in all_records if r.get("src") == "redshift")
         print(f"  Período: {all_records[0]['d']} → {all_records[-1]['d']}")
+        print(f"  Sheets: {sheet_n} | Redshift: {rs_n}")
         if scores:
             print(f"  Score: min={min(scores)}, max={max(scores)}, avg={sum(scores)/len(scores):.1f}")
         analistas = sorted({r["a"] for r in all_records})
