@@ -1011,9 +1011,9 @@ function redrawChartTemporal(daily) {
         const ctx2 = chart.ctx;
         const meta = chart.getDatasetMeta(0);
         const points = meta.data;
-        const TRANSITION = '2026-08-01';
-        // Linha de transição amostral → 100%
-        const transIdx = daily.findIndex(d => d.date >= TRANSITION);
+        const TRANSITION = '2026-08-03';
+        // Linha marcando início da cobertura 100% (Redshift)
+        const transIdx = daily.findIndex(d => d.isoPrefix >= TRANSITION);
         if (transIdx >= 0 && points[transIdx]) {
           const x = points[transIdx].x;
           const area = chart.chartArea;

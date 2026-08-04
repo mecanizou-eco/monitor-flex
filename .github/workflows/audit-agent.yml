@@ -1,40 +1,30 @@
-name: Auditoria de Atendimento (Twilio + Claude)
+name: Relatório HTML de Auditoria (Redshift)
 
 # Gera o relatório HTML de auditoria 3x/dia em dias úteis, puxando 100%
-# dos atendimentos do Redshift (a partir de 01/08/2026) + histórico do Sheets.
-# O audit_agent.py (amostragem via Twilio/Anthropic) ainda roda às 18h30.
+# dos atendimentos do Redshift via Metabase.
 #
 # Horários (America/Sao_Paulo, UTC-3):
-#   11h00 BRT -> 14:00 UTC  — corte do meio da manhã (HTML apenas)
-#   15h00 BRT -> 18:00 UTC  — corte da tarde (HTML apenas)
-#   18h30 BRT -> 21:30 UTC  — corte final: audit_agent + HTML
+#   11h00 BRT -> 14:00 UTC
+#   15h00 BRT -> 18:00 UTC
+#   18h30 BRT -> 21:30 UTC
 on:
   schedule:
-    - cron: "0 14 * * 1-5"     # 11h00 BRT, seg-sex  (HTML apenas)
-    - cron: "0 18 * * 1-5"     # 15h00 BRT, seg-sex  (HTML apenas)
-    - cron: "30 21 * * 1-5"    # 18h30 BRT, seg-sex  (audit_agent + HTML)
+    - cron: "0 14 * * 1-5"     # 11h00 BRT, seg-sex
+    - cron: "0 18 * * 1-5"     # 15h00 BRT, seg-sex
+    - cron: "30 21 * * 1-5"    # 18h30 BRT, seg-sex
   workflow_dispatch:            # permite rodar manualmente pela aba Actions
-    inputs:
-      sample:
-        description: "Quantas conversas auditar nesta rodada"
-        required: false
-        default: "10"
-      dry_run:
-        description: "Auditar sem gravar na planilha nem publicar (true/false)?"
-        required: false
-        default: "false"
 
 permissions:
   contents: read
 
 concurrency:
-  group: audit-agent
+  group: audit-report
   cancel-in-progress: false
 
 jobs:
-  audit:
+  report:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     env:
       TZ: America/Sao_Paulo
     steps:
@@ -49,65 +39,21 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Escreve a conta de serviço do Google a partir do secret
-        env:
-          GOOGLE_SA_JSON: ${{ secrets.GOOGLE_SA_JSON }}
-        run: |
-          printf '%s' "$GOOGLE_SA_JSON" > google-sa.json
-
       - name: Monta .env.local a partir dos secrets
         env:
-          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
-          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           TWILIO_SLACK_CHANNEL_ID: ${{ secrets.TWILIO_SLACK_CHANNEL_ID }}
           METABASE_URL: ${{ secrets.METABASE_URL }}
           METABASE_API_KEY: ${{ secrets.METABASE_API_KEY }}
-          AUDIT_SHEET_TAB: ${{ secrets.AUDIT_SHEET_TAB }}
         run: |
           cat > .env.local <<EOF
-          TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
-          TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
-          ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-          GOOGLE_SHEET_ID=${GOOGLE_SHEET_ID}
-          GOOGLE_SA_FILE=google-sa.json
           SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
           TWILIO_SLACK_CHANNEL_ID=${TWILIO_SLACK_CHANNEL_ID}
           METABASE_URL=${METABASE_URL}
           METABASE_API_KEY=${METABASE_API_KEY}
-          AUDIT_SHEET_TAB=${AUDIT_SHEET_TAB}
           EOF
 
-      # audit_agent.py (amostragem Twilio/Anthropic) só roda no corte das 18h30 UTC
-      # ou quando disparado manualmente. Nos cortes das 14h e 18h UTC gera só o HTML.
-      - name: Detecta corte atual
-        id: corte
-        run: |
-          HORA_UTC=$(date -u +%H)
-          MINUTO_UTC=$(date -u +%M)
-          # Manual dispatch OU 21h UTC (18h30 BRT) → roda audit_agent
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$HORA_UTC" = "21" ]; then
-            echo "run_agent=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run_agent=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Roda a auditoria e publica o resumo (só 18h30 BRT)
-        if: steps.corte.outputs.run_agent == 'true'
-        run: |
-          SAMPLE="${{ github.event.inputs.sample || '10' }}"
-          DRY_FLAG=""
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then DRY_FLAG="--dry-run"; fi
-          python3 scripts/audit_agent.py --sample "$SAMPLE" --post-slack $DRY_FLAG
-
-      - name: Gera PDFs de auditoria e envia para Thais no Slack (só 18h30 BRT)
-        if: steps.corte.outputs.run_agent == 'true' && github.event.inputs.dry_run != 'true'
-        run: python3 scripts/generate_audit_pdfs.py
-
-      - name: Gera relatório HTML interativo e envia ao Slack (todos os cortes)
-        if: github.event.inputs.dry_run != 'true'
+      - name: Gera relatório HTML interativo e envia ao Slack
         env:
           SLACK_REPORT_CHANNEL: ${{ secrets.SLACK_REPORT_CHANNEL }}
           METABASE_URL: ${{ secrets.METABASE_URL }}
@@ -128,7 +74,7 @@ jobs:
           channel = os.environ["SLACK_CHANNEL_ID"]
           run_url = os.environ["RUN_URL"]
           msg = (
-              ":red_circle: *Auditoria de atendimento falhou*\n"
+              ":red_circle: *Relatório de auditoria falhou*\n"
               "A execução automática não conseguiu rodar nesta janela.\n"
               f"Ver o erro: {run_url}"
           )
@@ -153,4 +99,4 @@ jobs:
 
       - name: Limpa segredos em disco
         if: always()
-        run: rm -f .env.local google-sa.json
+        run: rm -f .env.local
