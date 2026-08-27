@@ -53,6 +53,13 @@ DEFAULT_TAB = "base_de_registros"
 # Sheets: registros até esta data (exclusive). Redshift: a partir dela.
 REDSHIFT_START_DATE = "2026-08-01"
 
+# Janela de retenção do HTML: mantém só os últimos N dias embutidos no relatório.
+# O array RAW cresceria sem limite (uma conversa auditada por vez, todo dia), o que
+# deixa o arquivo pesado demais para o navegador renderizar. O histórico completo
+# (100% das conversas) continua intacto no Redshift (public_facts.ft_conversation_audit)
+# e no Sheets — este corte afeta só o que é embutido no HTML, não os dados de origem.
+HISTORY_WINDOW_DAYS = 45
+
 # ID do banco Redshift no Metabase (fallback se METABASE_REDSHIFT_DB não estiver no env)
 DEFAULT_REDSHIFT_DB = 8
 
@@ -564,6 +571,8 @@ def main():
     tab = env.get("AUDIT_SHEET_TAB") or DEFAULT_TAB
     out = Path(args.output) if args.output else DEFAULT_OUTPUT
 
+    window_cutoff = (datetime.now(BRT) - timedelta(days=HISTORY_WINDOW_DAYS)).strftime("%Y-%m-%d")
+
     all_records: list = []
 
     # ── Fonte 1: Google Sheets (histórico ≤ 31/07, base congelada) ──────────
@@ -587,9 +596,11 @@ def main():
         print("[info] GOOGLE_SHEET_ID ausente — ignorando Sheets.", file=sys.stderr)
 
     # ── Fonte 2: Redshift via Metabase (≥ 01/08, 100% cobertura) ────────────
-    print(f"[info] Redshift: consultando via Metabase (a partir de {REDSHIFT_START_DATE})…")
+    # Não busca mais do que a janela de retenção do HTML precisa (ver HISTORY_WINDOW_DAYS).
+    redshift_from_date = max(REDSHIFT_START_DATE, window_cutoff)
+    print(f"[info] Redshift: consultando via Metabase (a partir de {redshift_from_date})…")
     try:
-        redshift_raw = read_redshift_via_metabase(env)
+        redshift_raw = read_redshift_via_metabase(env, from_date=redshift_from_date)
         redshift_records = build_redshift_records(redshift_raw)
         print(f"[info] Redshift: {len(redshift_records)} registros.")
         all_records.extend(redshift_records)
@@ -605,6 +616,17 @@ def main():
                 )
     except Exception as e:
         print(f"[aviso] Falha ao ler Redshift: {e}", file=sys.stderr)
+
+    # ── Janela de retenção: mantém só os últimos HISTORY_WINDOW_DAYS dias ──
+    # (o Sheets sempre traz o histórico inteiro até 31/07; aqui é onde isso é
+    # cortado para o HTML não crescer sem limite — o Redshift já é filtrado
+    # na própria query acima, este filtro cobre o Sheets e serve de garantia).
+    before_window = len(all_records)
+    all_records = [r for r in all_records if r["d"] >= window_cutoff]
+    trimmed = before_window - len(all_records)
+    if trimmed:
+        print(f"[info] Janela de {HISTORY_WINDOW_DAYS} dias: {trimmed} registro(s) "
+              f"anterior(es) a {window_cutoff} descartado(s) do HTML (seguem intactos na origem).")
 
     if not all_records:
         print("[ERRO] Nenhum registro carregado de nenhuma fonte.", file=sys.stderr)
