@@ -356,11 +356,21 @@ LEFT JOIN twilio.conversation_analysis ca USING (task_sid)
 WHERE fa.completed_at >= '{from_date}'
   AND fa.responsavel_atendimento NOT ILIKE '%renata.santana%'
 ORDER BY fa.completed_at ASC
+LIMIT {limit} OFFSET {offset}
 """
+
+# A API /api/dataset do Metabase trunca silenciosamente em 2000 linhas por
+# requisição (sem sinalizar erro) — sem paginação, qualquer consulta com mais
+# de 2000 conversas perde tudo que vem depois da linha 2000 (foi isso que
+# deixou o relatório travado em 07/08/2026 por 20 dias). Pagina em blocos de
+# PAGE_SIZE via LIMIT/OFFSET até uma página vir incompleta.
+REDSHIFT_PAGE_SIZE = 2000
+REDSHIFT_MAX_PAGES = 100  # trava de segurança: até 200k linhas
 
 
 def read_redshift_via_metabase(env: dict, from_date: str = REDSHIFT_START_DATE) -> list:
-    """Lê auditorias do Redshift via Metabase /api/dataset."""
+    """Lê auditorias do Redshift via Metabase /api/dataset, paginando para não
+    cair no limite silencioso de 2000 linhas por requisição."""
     url = env.get("METABASE_URL", "").rstrip("/")
     key = env.get("METABASE_API_KEY", "")
     db  = int(env.get("METABASE_REDSHIFT_DB", DEFAULT_REDSHIFT_DB))
@@ -370,27 +380,42 @@ def read_redshift_via_metabase(env: dict, from_date: str = REDSHIFT_START_DATE) 
               file=sys.stderr)
         return []
 
-    sql = REDSHIFT_SQL.format(from_date=from_date)
-    resp = requests.post(
-        f"{url}/api/dataset",
-        headers={"x-api-key": key, "Content-Type": "application/json"},
-        json={"database": db, "type": "native", "native": {"query": sql}},
-        timeout=180,
-    )
-    if resp.status_code not in (200, 202):
-        print(f"[ERRO] Metabase/Redshift {resp.status_code}: {resp.text[:400]}", file=sys.stderr)
-        return []
+    all_rows = []
+    cols = None
+    for page in range(REDSHIFT_MAX_PAGES):
+        offset = page * REDSHIFT_PAGE_SIZE
+        sql = REDSHIFT_SQL.format(from_date=from_date, limit=REDSHIFT_PAGE_SIZE, offset=offset)
+        resp = requests.post(
+            f"{url}/api/dataset",
+            headers={"x-api-key": key, "Content-Type": "application/json"},
+            json={"database": db, "type": "native", "native": {"query": sql}},
+            timeout=180,
+        )
+        if resp.status_code not in (200, 202):
+            print(f"[ERRO] Metabase/Redshift {resp.status_code}: {resp.text[:400]}", file=sys.stderr)
+            break
 
-    payload = resp.json()
-    if payload.get("error"):
-        print(f"[ERRO] Metabase query error: {payload['error']}", file=sys.stderr)
-        return []
+        payload = resp.json()
+        if payload.get("error"):
+            print(f"[ERRO] Metabase query error: {payload['error']}", file=sys.stderr)
+            break
 
-    data = payload.get("data", {})
-    cols = [c["name"] for c in data.get("cols", [])]
-    rows = data.get("rows", [])
-    print(f"[info] Redshift: {len(rows)} registros recebidos.", file=sys.stderr)
-    return [dict(zip(cols, row)) for row in rows]
+        data = payload.get("data", {})
+        if cols is None:
+            cols = [c["name"] for c in data.get("cols", [])]
+        page_rows = data.get("rows", [])
+        all_rows.extend(page_rows)
+        print(f"[info] Redshift: página {page + 1} — {len(page_rows)} registros "
+              f"(acumulado: {len(all_rows)}).", file=sys.stderr)
+
+        if len(page_rows) < REDSHIFT_PAGE_SIZE:
+            break  # última página (veio incompleta)
+    else:
+        print(f"[aviso] Redshift: atingiu o limite de segurança de {REDSHIFT_MAX_PAGES} "
+              f"páginas — pode haver mais dados não buscados.", file=sys.stderr)
+
+    print(f"[info] Redshift: {len(all_rows)} registros recebidos no total.", file=sys.stderr)
+    return [dict(zip(cols, row)) for row in all_rows] if cols else []
 
 
 def build_redshift_records(raw_rows: list) -> list:
