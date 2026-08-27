@@ -58,7 +58,10 @@ REDSHIFT_START_DATE = "2026-08-01"
 # deixa o arquivo pesado demais para o navegador renderizar. O histórico completo
 # (100% das conversas) continua intacto no Redshift (public_facts.ft_conversation_audit)
 # e no Sheets — este corte afeta só o que é embutido no HTML, não os dados de origem.
-HISTORY_WINDOW_DAYS = 45
+# Volume real ~200 conversas/dia — 5 dias mantém o HTML leve o suficiente para
+# carregar de forma confiável (ver decisão em 27/08/2026 após o Artifact travar
+# mesmo com a janela de 45 dias, que resultava em milhares de registros).
+HISTORY_WINDOW_DAYS = 5
 
 # ID do banco Redshift no Metabase (fallback se METABASE_REDSHIFT_DB não estiver no env)
 DEFAULT_REDSHIFT_DB = 8
