@@ -78,6 +78,24 @@ As seguintes mensagens são **automáticas do sistema Mecanizou** (author=System
 - "Seu *pedido* já está indo até você." (author=System)
 - "Faltou pouco pra concluir sua compra!" (author=System)
 
+### Conversa sem demanda real — não auditar
+
+Se a **primeira (ou única) mensagem do cliente** não constitui uma demanda real de atendimento — por exemplo:
+- uma resposta automática de horário de funcionamento (ex.: "não estou atendendo no momento, meus horários são...");
+- uma saudação genérica automática, sem pergunta ou pedido;
+- um agradecimento isolado (ex.: apenas "Obrigado") sem qualquer solicitação anterior pendente de resposta;
+- instruções automáticas de terceiro (ex.: fornecedor/oficina enviando horários de retirada) que não configuram um pedido de suporte ao cliente final —
+
+então **essa conversa não deve ser auditada nem pontuada**. Não é uma falha de follow-up (P1) nem de SLA (P2) — não havia nada a que responder. Penalizar o atendimento nesses casos é um falso positivo. Na dúvida (mensagem ambígua, pode ser um pedido real incompleto), preferir auditar normalmente a excluir — a exclusão é para casos claramente sem demanda, não para qualquer mensagem curta.
+
+### Auditar por `conversation_sid` completo, não por `task_sid` isolado
+
+Uma mesma conversa do Twilio pode gerar **múltiplos `task_sid`** ao longo do tempo (cada transferência/retorno ao TaskRouter cria uma nova task). Auditar cada `task_sid` isoladamente, como se fosse uma conversa completa e independente, produz dois problemas graves:
+1. **Duplicação**: a mesma conversa real é contada várias vezes nos relatórios (uma vez por task).
+2. **Atribuição e conclusão erradas**: uma task que corresponde a um trecho *incompleto* da conversa (ex.: antes de um analista responder) é julgada como se fosse o desfecho final — gerando notas baixas injustas e atribuindo a falha a quem estava no início da fila, não a quem de fato (não) resolveu.
+
+A auditoria correta deve puxar o **histórico completo da `conversation_sid`** (todas as mensagens, de todas as tasks associadas) e gerar **uma única avaliação** para a conversa inteira, atribuída a quem efetivamente conduziu/encerrou o atendimento. Quando isso não for possível na arquitetura vigente, os relatórios devem no mínimo deduplicar por `conversation_sid` mantendo apenas a task mais recente (`completed_at` mais recente) como representante da conversa.
+
 ## Etapas avaliadas (peso — total 100)
 
 **Etapa 0 · Recebimento e Roteamento (10 pts)**
