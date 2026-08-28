@@ -48,6 +48,10 @@ WITH audited_raw AS (
     FROM public_facts.ft_conversation_audit
     WHERE completed_at >= CURRENT_DATE - INTERVAL '{window_days} day'
       AND responsavel_atendimento NOT ILIKE '%renata.santana%'
+      AND responsavel_atendimento NOT ILIKE '%thais.abreu%'
+      AND responsavel_atendimento NOT ILIKE '%gabriela.rachel%'
+      AND responsavel_atendimento NOT ILIKE '%andre.lopes%'
+      AND responsavel_atendimento NOT ILIKE '%bruno.ferreira%'
 ),
 audited AS (
     SELECT
