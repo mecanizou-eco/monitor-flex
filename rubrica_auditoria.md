@@ -78,6 +78,14 @@ As seguintes mensagens são **automáticas do sistema Mecanizou** (author=System
 - "Seu *pedido* já está indo até você." (author=System)
 - "Faltou pouco pra concluir sua compra!" (author=System)
 
+### Airton resolveu 100% da demanda — SLAs de resposta humana não se aplicam
+
+Quando o **Airton (IA)** cumprimenta o cliente e responde integralmente ao que foi pedido (ex.: monta e envia a cotação com preço e link de checkout, sem que reste nenhuma pergunta em aberto), **a intervenção do analista humano não é necessária** para aquele ponto da conversa. Nesse cenário:
+- O **SLA de primeira resposta de 3 minutos** (Etapa 1) **não se aplica** — o Airton já respondeu, o cronômetro de "resposta humana" não deveria nem começar a contar para efeito de penalização do analista.
+- O **SLA de cotação de 25 minutos** (Etapa 3) também **não se aplica** — a cotação já foi enviada pelo próprio Airton/sistema no ato.
+- O único critério a avaliar nesse caso é o **follow-up em até 15 minutos** após o envio da cotação (Etapa 4): se o cliente não retornar e ninguém (Airton ou analista) fizer contato proativo dentro de 15 minutos, **aí sim** há um desconto — só na etapa de follow-up, não nas etapas de resposta/cotação.
+- **Nunca classificar como "sem interação de Airton nem de analista"** uma conversa em que o Airton de fato respondeu — isso é um erro de leitura da transcrição, não uma ausência real de atendimento. Antes de pontuar E1/E3 como zerado, confirmar explicitamente se há alguma mensagem com `author=Airton` (ou nome "Airton" no campo remetente) na transcrição.
+
 ### Conversa sem demanda real — não auditar
 
 Se a **primeira (ou única) mensagem do cliente** não constitui uma demanda real de atendimento — por exemplo:
